@@ -1,239 +1,196 @@
-document.addEventListener("DOMContentLoaded",()=>{
+// NightScout Core App
+// Nightlife Intelligence Engine
 
-const $=(id)=>document.getElementById(id)
+const resultsDiv = document.getElementById("results");
 
-let map
-let searchRunning=false
+function showResults(html){
+    resultsDiv.innerHTML = html;
+}
 
-let venues=[]
+// ----------------------------
+// Basic Search
+// ----------------------------
 
-const NJ_CITIES=[
-"Newark NJ",
-"Hoboken NJ",
-"Jersey City NJ",
-"Asbury Park NJ",
-"Point Pleasant Beach NJ",
-"Seaside Heights NJ",
-"Wildwood NJ",
-"Atlantic City NJ",
-"Red Bank NJ",
-"Morristown NJ",
-"Montclair NJ"
-]
+function searchPlace(){
+    const query = document.querySelector("input[placeholder='City, ZIP, or address']").value;
 
+    if(!query){
+        alert("Enter a location");
+        return;
+    }
 
-function initMap(lat,lng){
+    const mapLink = `https://maps.google.com/?q=${encodeURIComponent(query)}`;
 
-const center={lat,lng}
+    showResults(`
+        <h3>Search Result</h3>
+        <p>${query}</p>
+        <a href="${mapLink}" target="_blank">Open in Google Maps</a>
+    `);
+}
 
-map=new google.maps.Map(
-$("mapPreview"),
-{zoom:12,center}
-)
+// ----------------------------
+// Load NJ Venues (demo dataset)
+// ----------------------------
 
-new google.maps.Marker({
-position:center,
-map,
-title:"Meet point"
-})
+const njVenues = [
+{ name:"Bar A", city:"Lake Como", type:"Beach Bar" },
+{ name:"DJais", city:"Belmar", type:"Club" },
+{ name:"Headliner", city:"Neptune", type:"Club" },
+{ name:"The Parker House", city:"Sea Girt", type:"Bar" },
+{ name:"Tropicana", city:"Atlantic City", type:"Casino Club" },
+{ name:"HQ2 Nightclub", city:"Atlantic City", type:"Casino Club" }
+];
+
+function loadNJVenues(){
+
+    let html = "<h3>NJ Nightlife Venues</h3>";
+
+    njVenues.forEach(v=>{
+        html += `<p><b>${v.name}</b> — ${v.city} (${v.type})</p>`;
+    });
+
+    showResults(html);
+}
+
+// ----------------------------
+// Meet in the Middle
+// ----------------------------
+
+async function meetInMiddle(){
+
+const locA = document.getElementById("locA").value;
+const locB = document.getElementById("locB").value;
+
+if(!locA || !locB){
+alert("Enter two locations");
+return;
+}
+
+try{
+
+const geoA = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locA)}`).then(r=>r.json());
+const geoB = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locB)}`).then(r=>r.json());
+
+if(!geoA.length || !geoB.length){
+alert("Location not found");
+return;
+}
+
+const lat1 = parseFloat(geoA[0].lat);
+const lon1 = parseFloat(geoA[0].lon);
+
+const lat2 = parseFloat(geoB[0].lat);
+const lon2 = parseFloat(geoB[0].lon);
+
+// midpoint math
+const midLat = (lat1 + lat2) / 2;
+const midLon = (lon1 + lon2) / 2;
+
+const mapLink = `https://maps.google.com/?q=${midLat},${midLon}`;
+
+showResults(`
+<h3>Meet in the Middle</h3>
+
+<p><b>Location A:</b> ${locA}</p>
+<p><b>Location B:</b> ${locB}</p>
+
+<p><b>Midpoint Coordinates:</b><br>
+${midLat.toFixed(5)}, ${midLon.toFixed(5)}</p>
+
+<p>
+<a href="${mapLink}" target="_blank">Open Midpoint in Google Maps</a>
+</p>
+`);
+
+}catch(e){
+
+console.error(e);
+alert("Error calculating midpoint");
 
 }
 
+}
 
-function midpoint(coords){
+// ----------------------------
+// Group Center
+// ----------------------------
 
-const lat=coords.reduce((s,c)=>s+c.lat,0)/coords.length
-const lng=coords.reduce((s,c)=>s+c.lng,0)/coords.length
+async function groupCenter(){
 
-return{lat,lng}
+const lines = document.querySelector("textarea").value.split("\n").filter(l=>l.trim());
+
+if(lines.length < 2){
+alert("Enter multiple locations");
+return;
+}
+
+let latSum = 0;
+let lonSum = 0;
+
+for(let loc of lines){
+
+const geo = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(loc)}`).then(r=>r.json());
+
+if(!geo.length) continue;
+
+latSum += parseFloat(geo[0].lat);
+lonSum += parseFloat(geo[0].lon);
 
 }
 
+const midLat = latSum / lines.length;
+const midLon = lonSum / lines.length;
 
-async function geocode(address){
+const mapLink = `https://maps.google.com/?q=${midLat},${midLon}`;
 
-return new Promise((resolve,reject)=>{
+showResults(`
+<h3>Group Center</h3>
 
-const geocoder=new google.maps.Geocoder()
+<p>Based on ${lines.length} locations</p>
 
-geocoder.geocode({address},(res,status)=>{
+<p>${midLat.toFixed(5)}, ${midLon.toFixed(5)}</p>
 
-if(status!=="OK")return reject(status)
-
-const loc=res[0].geometry.location
-
-resolve({
-lat:loc.lat(),
-lng:loc.lng(),
-address:res[0].formatted_address
-})
-
-})
-
-})
+<a href="${mapLink}" target="_blank">Open Group Center</a>
+`);
 
 }
 
+// ----------------------------
+// AI Night Plan Generator
+// ----------------------------
 
-function distance(a,b){
+function generateNightPlan(){
 
-return google.maps.geometry.spherical.computeDistanceBetween(
-new google.maps.LatLng(a.lat,a.lng),
-new google.maps.LatLng(b.lat,b.lng)
-)/1609
+const idea = document.querySelector("input[placeholder='Example: beach bar with DJ']").value;
+
+if(!idea){
+alert("Enter a nightlife idea");
+return;
+}
+
+showResults(`
+<h3>Night Plan</h3>
+
+<p>Theme: <b>${idea}</b></p>
+
+<ul>
+<li>Start: cocktail bar</li>
+<li>Main stop: live DJ venue</li>
+<li>Late night: club or beach bar</li>
+<li>Food: late-night pizza or diner</li>
+</ul>
+
+<p>Tip: Use Meet in the Middle to choose a fair meetup location.</p>
+`);
 
 }
 
-
-
-function renderVenues(list,mid){
-
-const container=$("venueList")
-
-container.innerHTML=""
-
-list.forEach(v=>{
-
-const dist=mid?distance(mid,v).toFixed(1):""
-
-const card=document.createElement("div")
-
-card.className="venue-card"
-
-card.innerHTML=`
-
-<h3>${v.name}</h3>
-
-<div>${v.city}</div>
-
-<div>${dist?dist+" miles from midpoint":""}</div>
-
-<button onclick="window.open('https://maps.google.com/?q=${encodeURIComponent(v.name+" "+v.city)}')">Directions</button>
-
-<button onclick="window.open('https://www.google.com/search?q=${encodeURIComponent(v.name+" dj events")}')">DJ events</button>
-
-`
-
-container.appendChild(card)
-
-})
-
-}
-
-
-async function searchNightlife(lat,lng){
-
-const service=new google.maps.places.PlacesService(map)
-
-const queries=[
-"bar",
-"nightclub",
-"lounge",
-"beach bar",
-"dj club",
-"casino club"
-]
-
-let results=[]
-
-for(const q of queries){
-
-const r=await new Promise(res=>{
-
-service.textSearch({
-location:{lat,lng},
-radius:15000,
-query:q
-},(r)=>res(r||[]))
-
-})
-
-results=results.concat(r)
-
-}
-
-venues=results.map(v=>({
-
-name:v.name,
-city:v.formatted_address,
-lat:v.geometry.location.lat(),
-lng:v.geometry.location.lng()
-
-}))
-
-return venues
-
-}
-
-
-async function runSolo(){
-
-if(searchRunning)return
-searchRunning=true
-
-const q=$("soloQuery").value
-
-const g=await geocode(q)
-
-initMap(g.lat,g.lng)
-
-const list=await searchNightlife(g.lat,g.lng)
-
-renderVenues(list)
-
-searchRunning=false
-
-}
-
-
-
-async function runMiddle(){
-
-if(searchRunning)return
-searchRunning=true
-
-const a=await geocode($("midA").value)
-const b=await geocode($("midB").value)
-
-const mid=midpoint([a,b])
-
-initMap(mid.lat,mid.lng)
-
-const list=await searchNightlife(mid.lat,mid.lng)
-
-renderVenues(list,mid)
-
-searchRunning=false
-
-}
-
-
-
-async function runGroup(){
-
-if(searchRunning)return
-searchRunning=true
-
-const lines=$("groupList").value.split("\n").filter(x=>x.trim())
-
-const geo=await Promise.all(lines.map(geocode))
-
-const mid=midpoint(geo)
-
-initMap(mid.lat,mid.lng)
-
-const list=await searchNightlife(mid.lat,mid.lng)
-
-renderVenues(list,mid)
-
-searchRunning=false
-
-}
-
-
-
-$("runSolo").onclick=runSolo
-$("runMiddle").onclick=runMiddle
-$("runGroup").onclick=runGroup
-
-})
+// ----------------------------
+// Button Wiring
+// ----------------------------
+
+document.querySelector("button:nth-of-type(5)")?.addEventListener("click", searchPlace);
+document.querySelector("button:nth-of-type(6)")?.addEventListener("click", loadNJVenues);
+document.querySelector("button:nth-of-type(7)")?.addEventListener("click", meetInMiddle);
+document.querySelector("button:nth-of-type(8)")?.addEventListener("click", groupCenter);
+document.querySelector("button:nth-of-type(9)")?.addEventListener("click", generateNightPlan);
