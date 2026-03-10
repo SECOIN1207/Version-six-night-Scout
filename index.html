@@ -1,140 +1,184 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NightScout</title>
-  <style>
-    body {
-      font-family: Georgia, serif;
-      margin: 40px;
-      background: #fff;
-      color: #111;
-    }
 
-    h1 {
-      font-size: 64px;
-      margin-bottom: 10px;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    h2 {
-      font-size: 28px;
-      margin-top: 40px;
-    }
+<title>NightScout</title>
 
-    h3 {
-      font-size: 24px;
-      margin-bottom: 10px;
-    }
+<style>
 
-    p {
-      max-width: 900px;
-      font-size: 22px;
-      line-height: 1.2;
-    }
+body{
+font-family: Georgia, serif;
+margin:40px;
+color:#111;
+background:white;
+}
 
-    button {
-      padding: 12px 24px;
-      margin: 6px;
-      border-radius: 18px;
-      border: 2px solid #ccc;
-      background: #eee;
-      color: #1473d7;
-      cursor: pointer;
-      font-size: 18px;
-      font-weight: 700;
-    }
+h1{
+font-size:64px;
+margin-bottom:8px;
+}
 
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
+h2{
+margin-top:40px;
+}
 
-    input, textarea {
-      display: block;
-      width: min(900px, 100%);
-      padding: 14px;
-      margin: 12px 0;
-      border-radius: 14px;
-      border: 2px solid #ccc;
-      font-size: 20px;
-      box-sizing: border-box;
-    }
+button{
+padding:12px 24px;
+margin:6px;
+border-radius:18px;
+border:2px solid #ccc;
+background:#eee;
+color:#1473d7;
+cursor:pointer;
+font-weight:700;
+}
 
-    textarea {
-      min-height: 180px;
-      resize: vertical;
-    }
+input, textarea{
 
-    #results {
-      margin-top: 30px;
-      padding-bottom: 40px;
-    }
+display:block;
+width:min(900px,100%);
+padding:14px;
+margin:12px 0;
+border-radius:14px;
+border:2px solid #ccc;
+font-size:18px;
 
-    .card {
-      border: 1px solid #ddd;
-      border-radius: 20px;
-      padding: 18px;
-      margin: 18px 0;
-      background: #fafafa;
-      max-width: 900px;
-    }
+}
 
-    .result-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin: 12px 0 18px;
-    }
+textarea{
+min-height:160px;
+}
 
-    .muted {
-      color: #666;
-    }
+.card{
 
-    .hidden {
-      display: none;
-    }
-  </style>
+border:1px solid #ddd;
+border-radius:18px;
+padding:16px;
+margin:16px 0;
+background:#fafafa;
+max-width:900px;
+
+}
+
+</style>
+
 </head>
+
+
 <body>
-  <div>Nightlife Intelligence</div>
-  <h1>NightScout</h1>
 
-  <p>
-    Meet in the middle. Discover bars, lounges, beach bars, clubs, casinos and live DJ venues across New Jersey.
-  </p>
+<div>Nightlife Intelligence</div>
 
-  <h2>NJ nightlife</h2>
+<h1>NightScout</h1>
 
-  <div>
-    <button type="button">Solo</button>
-    <button type="button">Middle</button>
-    <button type="button">Group</button>
-    <button type="button">AI</button>
-  </div>
+<p>
+Meet in the middle. Discover bars, lounges, taverns, pubs, clubs,
+pool halls, bar arcades, axe throwing venues and nightlife across New Jersey.
+</p>
 
-  <input id="soloQuery" placeholder="City, ZIP, or address" />
 
-  <div>
-    <button id="searchBtn" type="button">Search</button>
-    <button id="loadNJ" type="button">Load NJ Venues</button>
-  </div>
+<h2>NJ nightlife</h2>
 
-  <input id="locA" placeholder="Location A" />
-  <input id="locB" placeholder="Location B" />
-  <button id="middleBtn" type="button">Meet in the Middle</button>
 
-  <textarea id="groupList" placeholder="Enter one location per line"></textarea>
-  <button id="groupBtn" type="button">Group Center</button>
+<div>
 
-  <input id="aiPrompt" placeholder="Example: beach bar with DJ" />
-  <button id="aiBtn" type="button">Generate Night Plan</button>
+<button>Solo</button>
+<button>Middle</button>
+<button>Group</button>
+<button>AI</button>
 
-  <h2>Results</h2>
+</div>
 
-  <div id="results"></div>
 
-  <script src="app.js"></script>
+<!-- SOLO SEARCH -->
+
+<input
+id="soloQuery"
+placeholder="City, ZIP, or address"
+/>
+
+<div>
+
+<button id="searchBtn">
+Search
+</button>
+
+<button id="loadNJ">
+Load NJ Venues
+</button>
+
+</div>
+
+
+<!-- MEET IN THE MIDDLE -->
+
+<h3>Meet in the Middle</h3>
+
+<input
+id="locA"
+placeholder="Location A"
+/>
+
+<input
+id="locB"
+placeholder="Location B"
+/>
+
+<button
+id="middleBtn"
+>
+Meet in the Middle
+</button>
+
+
+
+<!-- GROUP COORDINATION -->
+
+<h3>Group Coordination</h3>
+
+<textarea
+id="groupList"
+placeholder="Enter one location per line"
+></textarea>
+
+<button
+id="groupBtn"
+>
+Group Center
+</button>
+
+
+
+<!-- AI NIGHT PLAN -->
+
+<h3>Night Plan</h3>
+
+<input
+id="aiPrompt"
+placeholder="Example: beach bar with DJ"
+/>
+
+<button
+id="aiBtn"
+>
+Generate Night Plan
+</button>
+
+
+
+<!-- RESULTS -->
+
+<h2>Results</h2>
+
+<div id="results"></div>
+
+
+
+<script src="app.js"></script>
+
 </body>
-</html>
+
 </html>
