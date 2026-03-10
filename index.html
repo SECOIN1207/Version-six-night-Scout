@@ -1,123 +1,140 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NightScout</title>
+  <style>
+    body {
+      font-family: Georgia, serif;
+      margin: 40px;
+      background: #fff;
+      color: #111;
+    }
 
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    h1 {
+      font-size: 64px;
+      margin-bottom: 10px;
+    }
 
-<title>NightScout</title>
+    h2 {
+      font-size: 28px;
+      margin-top: 40px;
+    }
 
-<style>
+    h3 {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
 
-body{
-font-family: Georgia, serif;
-margin:40px;
-background:#ffffff;
-color:#111;
-}
+    p {
+      max-width: 900px;
+      font-size: 22px;
+      line-height: 1.2;
+    }
 
-h1{
-font-size:48px;
-margin-bottom:10px;
-}
+    button {
+      padding: 12px 24px;
+      margin: 6px;
+      border-radius: 18px;
+      border: 2px solid #ccc;
+      background: #eee;
+      color: #1473d7;
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: 700;
+    }
 
-button{
-padding:8px 14px;
-margin:5px;
-border-radius:10px;
-border:1px solid #ccc;
-background:#eee;
-cursor:pointer;
-}
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
 
-input, textarea{
-padding:8px;
-margin:6px 4px;
-border-radius:8px;
-border:1px solid #ccc;
-width:260px;
-}
+    input, textarea {
+      display: block;
+      width: min(900px, 100%);
+      padding: 14px;
+      margin: 12px 0;
+      border-radius: 14px;
+      border: 2px solid #ccc;
+      font-size: 20px;
+      box-sizing: border-box;
+    }
 
-textarea{
-width:540px;
-height:120px;
-}
+    textarea {
+      min-height: 180px;
+      resize: vertical;
+    }
 
-#results{
-margin-top:30px;
-}
+    #results {
+      margin-top: 30px;
+      padding-bottom: 40px;
+    }
 
-.card{
-border:1px solid #ddd;
-border-radius:14px;
-padding:14px;
-margin-bottom:10px;
-background:#fafafa;
-}
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 20px;
+      padding: 18px;
+      margin: 18px 0;
+      background: #fafafa;
+      max-width: 900px;
+    }
 
-</style>
+    .result-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 12px 0 18px;
+    }
 
+    .muted {
+      color: #666;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
 </head>
-
-
 <body>
+  <div>Nightlife Intelligence</div>
+  <h1>NightScout</h1>
 
-<h3>Nightlife Intelligence</h3>
-<h1>NightScout</h1>
+  <p>
+    Meet in the middle. Discover bars, lounges, beach bars, clubs, casinos and live DJ venues across New Jersey.
+  </p>
 
-<p>
-Meet in the middle. Discover bars, lounges, beach bars,
-clubs, casinos and live DJ venues across New Jersey.
-</p>
+  <h2>NJ nightlife</h2>
 
-<h3>NJ nightlife</h3>
+  <div>
+    <button type="button">Solo</button>
+    <button type="button">Middle</button>
+    <button type="button">Group</button>
+    <button type="button">AI</button>
+  </div>
 
-<button>Solo</button>
-<button>Middle</button>
-<button>Group</button>
-<button>AI</button>
+  <input id="soloQuery" placeholder="City, ZIP, or address" />
 
-<br>
+  <div>
+    <button id="searchBtn" type="button">Search</button>
+    <button id="loadNJ" type="button">Load NJ Venues</button>
+  </div>
 
-<input id="soloQuery" placeholder="City, ZIP, or address">
+  <input id="locA" placeholder="Location A" />
+  <input id="locB" placeholder="Location B" />
+  <button id="middleBtn" type="button">Meet in the Middle</button>
 
-<br>
+  <textarea id="groupList" placeholder="Enter one location per line"></textarea>
+  <button id="groupBtn" type="button">Group Center</button>
 
-<button id="searchBtn">Search</button>
-<button id="loadNJ">Load NJ Venues</button>
+  <input id="aiPrompt" placeholder="Example: beach bar with DJ" />
+  <button id="aiBtn" type="button">Generate Night Plan</button>
 
-<br><br>
+  <h2>Results</h2>
 
-<input id="locA" placeholder="Location A">
-<input id="locB" placeholder="Location B">
+  <div id="results"></div>
 
-<br>
-
-<button id="middleBtn">Meet in the Middle</button>
-
-<br><br>
-
-<textarea id="groupList" placeholder="Enter one location per line"></textarea>
-
-<br>
-
-<button id="groupBtn">Group Center</button>
-
-<br><br>
-
-<input id="aiPrompt" placeholder="Example: beach bar with DJ">
-
-<br>
-
-<button id="aiBtn">Generate Night Plan</button>
-
-<h2>Results</h2>
-
-<div id="results"></div>
-
-<script src="app.js"></script>
-
+  <script src="app.js"></script>
 </body>
-
+</html>
 </html>
