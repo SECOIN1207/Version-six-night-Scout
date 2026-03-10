@@ -10,6 +10,13 @@ async function geocodeAddress(address) {
   return data.results[0].geometry.location;
 }
 
+  if (!data.results.length) {
+    throw new Error("Address not found");
+  }
+
+  return data.results[0].geometry.location;
+}
+
 async function reverseGeocode(lat, lng) {
   const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_API_KEY}`;
   const res = await fetch(url);
