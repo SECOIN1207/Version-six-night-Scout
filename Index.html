@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>NightScout V5</title>
+
+<link rel="stylesheet" href="styles.css">
+
+</head>
+
+
+<body>
+
+<div class="app-shell">
+
+<div class="hero card">
+
+<div class="hero-copy">
+
+<div class="eyebrow">Nightlife Intelligence</div>
+
+<h1>NightScout</h1>
+
+<p>
+Meet in the middle. Discover bars, lounges, beach bars,
+clubs, casinos and live DJ venues across New Jersey.
+</p>
+
+</div>
+
+<div class="hero-pill">
+NJ nightlife
+</div>
+
+</div>
+
+
+
+<div id="searchPanel" class="search-panel card">
+
+<div class="mode-switch">
+
+<button class="mode active" data-mode="solo">Solo</button>
+<button class="mode" data-mode="middle">Middle</button>
+<button class="mode" data-mode="group">Group</button>
+<button class="mode" data-mode="ai">AI</button>
+
+</div>
+
+
+<div id="solo-mode" class="mode-panel active">
+
+<input id="soloQuery" placeholder="City, ZIP, or address">
+
+<div class="button-row">
+
+<button id="runSolo" class="primary">Search</button>
+<button id="loadNj" class="secondary">Load NJ Venues</button>
+
+</div>
+
+<div id="seedCities" class="seed-row"></div>
+
+</div>
+
+
+
+<div id="middle-mode" class="mode-panel">
+
+<input id="midA" placeholder="Location A">
+
+<input id="midB" placeholder="Location B">
+
+<div class="button-row">
+
+<button id="runMiddle" class="primary">
+Meet in the Middle
+</button>
+
+</div>
+
+</div>
+
+
+
+<div id="group-mode" class="mode-panel">
+
+<textarea id="groupList" rows="4"
+placeholder="Enter one location per line">
+</textarea>
+
+<div class="button-row">
+
+<button id="runGroup" class="primary">
+Group Center
+</button>
+
+</div>
+
+</div>
+
+
+
+<div id="ai-mode" class="mode-panel">
+
+<input id="aiPrompt"
+placeholder="Example: beach bar with DJ under $10 beer">
+
+<div class="button-row">
+
+<button id="runAi" class="primary">
+Generate Night Plan
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+
+
+<div class="section card">
+
+<div class="section-head">
+
+<h2>Results</h2>
+
+<span id="resultsCount"></span>
+
+</div>
+
+<div id="plannerSummary"></div>
+
+<div id="plannerResult" class="planner-box"></div>
+
+<div id="mapPreview" style="height:300px;border-radius:16px;margin-bottom:20px"></div>
+
+<div id="venueList" class="venue-list"></div>
+
+</div>
+
+</div>
+
+
+<div id="funFloating">
+<img src="fun.png">
+</div>
+
+
+<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_KEY&libraries=places,geometry"></script>
+
+<script src="app.js"></script>
+
+</body>
+</html>
