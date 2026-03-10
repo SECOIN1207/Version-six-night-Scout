@@ -1,5 +1,5 @@
 async function geocodeAddress(address) {
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${AIzaSyDYtelX2ShPOmrdE2xKHO_Djf8SV3Dl9gI}`;
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=AIzaSyDYtelX2ShPOmrdE2xKHO_Djf8SV3Dl9gI`;
   const res = await fetch(url);
   const data = await res.json();
 
