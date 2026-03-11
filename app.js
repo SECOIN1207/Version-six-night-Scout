@@ -57,10 +57,6 @@ document.addEventListener("DOMContentLoaded", () => {
     "englewood": "Englewood, NJ 07631"
   };
 
-  const GEOCODE_CACHE = new Map();
-  const REVERSE_CACHE = new Map();
-  const PLACE_DETAIL_CACHE = new Map();
-
   let lastMidpointState = null;
 
   function escapeHtml(str) {
@@ -154,22 +150,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function geocodeAddress(address) {
     const cleaned = cleanLocationInput(address);
-    const cacheKey = `geo:${cleaned}`;
-
-    if (GEOCODE_CACHE.has(cacheKey)) {
-      return GEOCODE_CACHE.get(cacheKey);
-    }
 
     if (isLatLng(cleaned)) {
       const parsed = parseLatLng(cleaned);
-      const result = {
+      return {
         lat: parsed.lat,
         lng: parsed.lng,
         display: `${parsed.lat}, ${parsed.lng}`,
         input: address
       };
-      GEOCODE_CACHE.set(cacheKey, result);
-      return result;
     }
 
     const zipHint = extractZip(cleaned);
@@ -179,13 +168,11 @@ document.addEventListener("DOMContentLoaded", () => {
         : `${cleaned}, New Jersey, USA`;
 
     const url =
-      `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8&q=` +
+      "https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8&q=" +
       encodeURIComponent(query);
 
     const res = await fetch(url, {
-      headers: {
-        Accept: "application/json"
-      }
+      headers: { Accept: "application/json" }
     });
 
     if (!res.ok) {
@@ -228,38 +215,26 @@ document.addEventListener("DOMContentLoaded", () => {
           if (part && blob.includes(part)) score += 25;
         });
 
-        if (item.class === "place") score += 20;
-        if (item.type === "city" || item.type === "town" || item.type === "village") score += 20;
-
         return { item, score };
       })
       .sort((a, b) => b.score - a.score);
 
     const best = scored[0].item;
-    const result = {
+
+    return {
       lat: parseFloat(best.lat),
       lng: parseFloat(best.lon),
       display: best.display_name,
       input: address
     };
-
-    GEOCODE_CACHE.set(cacheKey, result);
-    return result;
   }
 
   async function reverseGeocode(lat, lng) {
-    const key = `rev:${lat.toFixed(5)},${lng.toFixed(5)}`;
-    if (REVERSE_CACHE.has(key)) {
-      return REVERSE_CACHE.get(key);
-    }
-
     const url =
       `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${lat}&lon=${lng}`;
 
     const res = await fetch(url, {
-      headers: {
-        Accept: "application/json"
-      }
+      headers: { Accept: "application/json" }
     });
 
     if (!res.ok) {
@@ -269,7 +244,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const data = await res.json();
     const addr = data.address || {};
 
-    const result = {
+    return {
       town:
         addr.city ||
         addr.town ||
@@ -282,13 +257,8 @@ document.addEventListener("DOMContentLoaded", () => {
       zip: addr.postcode || "",
       county: addr.county || "",
       address: data.display_name || "",
-      state: addr.state || "",
-      road: addr.road || "",
-      house_number: addr.house_number || ""
+      state: addr.state || ""
     };
-
-    REVERSE_CACHE.set(key, result);
-    return result;
   }
 
   function classifyVenue(tags = {}) {
@@ -328,7 +298,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (cuisine.includes("steak")) return "Steakhouse";
     if (cuisine.includes("pizza")) return "Pizza";
     if (cuisine.includes("mexican")) return "Mexican";
-    if (cuisine.includes("brunch")) return "Brunch";
     return titleCase(cuisine.split(";")[0].split(",")[0]);
   }
 
@@ -346,7 +315,6 @@ document.addEventListener("DOMContentLoaded", () => {
       amenity === "nightclub" ||
       amenity === "biergarten" ||
       amenity === "casino" ||
-      tourism === "attraction" ||
       text.includes("tavern") ||
       text.includes("lounge") ||
       text.includes("dive") ||
@@ -428,45 +396,20 @@ out center tags;
         if (!placeLat || !placeLng || !tags.name) return null;
         if (!matchesMode(tags, mode)) return null;
 
-        const phone =
-          tags.phone ||
-          tags["contact:phone"] ||
-          "";
-        const website =
-          tags.website ||
-          tags["contact:website"] ||
-          tags.url ||
-          "";
-        const hours =
-          tags.opening_hours ||
-          tags["contact:opening_hours"] ||
-          "";
-        const fullAddress = [
-          tags["addr:housenumber"],
-          tags["addr:street"],
-          tags["addr:city"] || tags["addr:town"] || tags["addr:village"],
-          tags["addr:postcode"]
-        ]
-          .filter(Boolean)
-          .join(" ");
-
         return {
           name: tags.name,
           type: mode === "restaurants" ? restaurantCuisineLabel(tags) : classifyVenue(tags),
           lat: placeLat,
           lng: placeLng,
-          address: fullAddress,
-          phone,
-          website,
-          hours,
-          menu: tags.menu || tags["contact:menu"] || "",
-          tags,
-          townHint:
-            tags["addr:city"] ||
-            tags["addr:town"] ||
-            tags["addr:village"] ||
-            "",
-          zipHint: tags["addr:postcode"] || ""
+          address: [
+            tags["addr:housenumber"],
+            tags["addr:street"],
+            tags["addr:city"] || tags["addr:town"] || tags["addr:village"],
+            tags["addr:postcode"]
+          ]
+            .filter(Boolean)
+            .join(" "),
+          tags
         };
       })
       .filter(Boolean);
@@ -485,74 +428,31 @@ out center tags;
     return deduped;
   }
 
-  async function enrichPlacesWithReverse(places, limit = 12) {
-    const targets = places.slice(0, limit);
-
-    await Promise.all(
-      targets.map(async (place) => {
-        const key = `place:${place.lat.toFixed(5)},${place.lng.toFixed(5)}`;
-
-        if (PLACE_DETAIL_CACHE.has(key)) {
-          const cached = PLACE_DETAIL_CACHE.get(key);
-          Object.assign(place, cached);
-          return;
-        }
-
-        try {
-          const rev = await reverseGeocode(place.lat, place.lng);
-
-          const enriched = {
-            fullAddress: rev.address || place.address || "",
-            townResolved: rev.town || place.townHint || "",
-            zipResolved: rev.zip || place.zipHint || "",
-            countyResolved: rev.county || ""
-          };
-
-          Object.assign(place, enriched);
-          PLACE_DETAIL_CACHE.set(key, enriched);
-        } catch (_) {
-          const fallback = {
-            fullAddress: place.address || "",
-            townResolved: place.townHint || "",
-            zipResolved: place.zipHint || "",
-            countyResolved: ""
-          };
-          Object.assign(place, fallback);
-          PLACE_DETAIL_CACHE.set(key, fallback);
-        }
-      })
-    );
-
-    return places;
+  function knownClosed(place) {
+    const hay = normalize(`${place.name} ${place.address || ""}`);
+    return hay.includes("wicked wolf");
   }
 
   function sameTownOrZip(place, areaInfo) {
-    const placeBlob = normalize(
+    const blob = normalize(
       [
-        place.fullAddress,
         place.address,
-        place.townResolved,
-        place.townHint,
-        place.zipResolved,
-        place.zipHint,
         JSON.stringify(place.tags || {})
-      ]
-        .filter(Boolean)
-        .join(" ")
+      ].join(" ")
     );
 
     const townNeedle = normalize(areaInfo.town || "");
     const zipNeedle = normalize(areaInfo.zip || "");
 
-    if (zipNeedle && placeBlob.includes(zipNeedle)) return true;
-    if (townNeedle && placeBlob.includes(townNeedle)) return true;
+    if (zipNeedle && blob.includes(zipNeedle)) return true;
+    if (townNeedle && blob.includes(townNeedle)) return true;
 
     return false;
   }
 
   function matchesSoloFilters(place, filters) {
     const hay = normalize(
-      `${place.name} ${place.type} ${place.address} ${place.fullAddress || ""} ${JSON.stringify(place.tags || {})}`
+      `${place.name} ${place.type} ${place.address} ${JSON.stringify(place.tags || {})}`
     );
 
     if (filters.venue !== "any") {
@@ -574,23 +474,7 @@ out center tags;
       if (!needed.some((word) => hay.includes(normalize(word)))) return false;
     }
 
-    if (filters.music !== "any") {
-      const musicMap = {
-        "live music": ["live music", "music", "concert", "theater", "band"],
-        dj: ["dj", "dance", "nightclub", "club"],
-        "hip hop": ["hip hop"],
-        house: ["house"],
-        rock: ["rock"],
-        latin: ["latin"],
-        "top 40": ["top 40"],
-        country: ["country"],
-        edm: ["edm", "electronic", "dj"]
-      };
-
-      const needed = musicMap[filters.music] || [filters.music];
-      if (!needed.some((word) => hay.includes(normalize(word)))) return false;
-    }
-
+    if (filters.music !== "any") return true;
     if (filters.vibe !== "any") {
       const vibeMap = {
         waterfront: ["waterfront", "river", "pier", "harbor", "sinatra", "boardwalk", "beach", "boulevard east", "port imperial"],
@@ -607,44 +491,19 @@ out center tags;
     return true;
   }
 
-  function getAgeCrowdText(place) {
-    const hay = normalize(
-      `${place.name} ${place.type} ${place.fullAddress || ""} ${JSON.stringify(place.tags || {})}`
-    );
-
-    if (hay.includes("college") || hay.includes("university")) return "Usually younger crowd";
-    if (hay.includes("nightclub") || hay.includes("club")) return "Usually 20s–30s";
-    if (hay.includes("pub") || hay.includes("tavern")) return "Mixed adult crowd";
-    if (hay.includes("lounge")) return "Usually 30+";
-    return "Crowd not verified";
-  }
-
-  function knownClosed(place) {
-    const hay = normalize(`${place.name} ${place.fullAddress || ""}`);
-    if (hay.includes("wicked wolf")) return true;
-    return false;
-  }
-
   function placeLinksHtml(place, town) {
-    const queryText = `${place.name} ${place.fullAddress || place.address || town} NJ`;
+    const queryText = `${place.name} ${place.address || town} NJ`;
     const directions = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryText)}`;
     const photos = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(place.name + " " + town + " NJ")}`;
     const search = `https://www.google.com/search?q=${encodeURIComponent(place.name + " " + town + " NJ")}`;
-    const call = place.phone ? `tel:${place.phone.replace(/[^\d+]/g, "")}` : "";
-    const website = place.website || "";
-    const menu = place.menu ? place.menu : `https://www.google.com/search?q=${encodeURIComponent(place.name + " menu " + town + " NJ")}`;
 
-    let html = `<div class="result-links">`;
-
-    if (call) html += `<a href="${call}">Call</a>`;
-    html += `<a href="${directions}" target="_blank" rel="noopener noreferrer">Directions</a>`;
-    if (website) html += `<a href="${website}" target="_blank" rel="noopener noreferrer">Website</a>`;
-    html += `<a href="${photos}" target="_blank" rel="noopener noreferrer">Photos</a>`;
-    html += `<a href="${menu}" target="_blank" rel="noopener noreferrer">Menu</a>`;
-    html += `<a href="${search}" target="_blank" rel="noopener noreferrer">Search</a>`;
-    html += `</div>`;
-
-    return html;
+    return `
+      <div class="result-links">
+        <a href="${directions}" target="_blank" rel="noopener noreferrer">Directions</a>
+        <a href="${photos}" target="_blank" rel="noopener noreferrer">Photos</a>
+        <a href="${search}" target="_blank" rel="noopener noreferrer">Search</a>
+      </div>
+    `;
   }
 
   function modeButtonsHtml(active) {
@@ -658,14 +517,6 @@ out center tags;
         ${makeBtn("nightlife", "Nightlife")}
         ${makeBtn("restaurants", "Restaurants")}
         ${makeBtn("everything", "Everything")}
-      </div>
-    `;
-  }
-
-  function helpBoxHtml(title, text) {
-    return `
-      <div class="card warning-card">
-        <p style="margin:0;"><b>${escapeHtml(title)}:</b> ${escapeHtml(text)}</p>
       </div>
     `;
   }
@@ -689,21 +540,15 @@ out center tags;
 
     return sorted
       .map((p) => {
-        const addressText = p.fullAddress || p.address || "Address not listed";
-        const hoursText = p.hours || "Hours not listed";
-        const crowdText = getAgeCrowdText(p);
-        const statusText = knownClosed(p) ? "Reported closed" : "Open status not verified";
+        const addressText = p.address || "Address not listed";
 
         return `
           <div class="card">
             <h3 style="margin:0 0 8px;">${escapeHtml(p.name)}</h3>
             <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(p.type)}</p>
-            <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(p.townResolved || areaInfo.town)}</p>
+            <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(areaInfo.town)}</p>
             <p style="margin:4px 0;"><b>Distance:</b> ${p.distance.toFixed(1)} miles</p>
             <p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(addressText)}</p>
-            <p style="margin:4px 0;"><b>Hours:</b> ${escapeHtml(hoursText)}</p>
-            <p style="margin:4px 0;"><b>Crowd:</b> ${escapeHtml(crowdText)}</p>
-            <p style="margin:4px 0;"><b>Status:</b> ${escapeHtml(statusText)}</p>
             ${placeLinksHtml(p, areaInfo.town)}
           </div>
         `;
@@ -714,7 +559,6 @@ out center tags;
   function renderMiddleResults(mid, midpointInfo, places, geoA, geoB, mode) {
     els.results.innerHTML = `
       <h2>Meet in the Middle Results</h2>
-      ${helpBoxHtml("Tip", "Use clean addresses like 137 Fleming Ave, Newark, NJ 07105. If you see double commas, delete the extra comma.")}
       <div class="card">
         <p><b>Location A:</b> ${escapeHtml(geoA.display)}</p>
         <p><b>Location B:</b> ${escapeHtml(geoB.display)}</p>
@@ -748,7 +592,6 @@ out center tags;
 
     els.results.innerHTML = `
       <h2>Group Center Results</h2>
-      ${helpBoxHtml("Tip", "One location per line works best. Town + NJ + ZIP is usually enough.")}
       <div class="card">
         ${pointsHtml}
         <p><b>Midpoint Town:</b> ${escapeHtml(midpointInfo.town)}</p>
@@ -788,10 +631,6 @@ out center tags;
 
     els.results.innerHTML = `
       <h2>Solo Search Results</h2>
-      ${helpBoxHtml(
-        "How to use Solo",
-        "The more specific you are, the better it gets. Town + venue type + vibe usually gives the strongest matches."
-      )}
       <div class="card">
         <p><b>Town:</b> ${escapeHtml(areaInfo.town)}</p>
         <p><b>ZIP:</b> ${escapeHtml(areaInfo.zip || "Not available")}</p>
@@ -801,26 +640,16 @@ out center tags;
       </div>
       ${
         sorted.length
-          ? sorted
-              .map((p) => {
-                const addressText = p.fullAddress || p.address || "Address not listed";
-                const hoursText = p.hours || "Hours not listed";
-                const crowdText = getAgeCrowdText(p);
-
-                return `
-                  <div class="card">
-                    <h3 style="margin:0 0 8px;">${escapeHtml(p.name)}</h3>
-                    <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(p.type)}</p>
-                    <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(p.townResolved || areaInfo.town)}</p>
-                    <p style="margin:4px 0;"><b>Distance:</b> ${p.distance.toFixed(1)} miles</p>
-                    <p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(addressText)}</p>
-                    <p style="margin:4px 0;"><b>Hours:</b> ${escapeHtml(hoursText)}</p>
-                    <p style="margin:4px 0;"><b>Crowd:</b> ${escapeHtml(crowdText)}</p>
-                    ${placeLinksHtml(p, areaInfo.town)}
-                  </div>
-                `;
-              })
-              .join("")
+          ? sorted.map((p) => `
+            <div class="card">
+              <h3 style="margin:0 0 8px;">${escapeHtml(p.name)}</h3>
+              <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(p.type)}</p>
+              <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(areaInfo.town)}</p>
+              <p style="margin:4px 0;"><b>Distance:</b> ${p.distance.toFixed(1)} miles</p>
+              <p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(p.address || "Address not listed")}</p>
+              ${placeLinksHtml(p, areaInfo.town)}
+            </div>
+          `).join("")
           : `<div class="card warning-card"><p style="margin:0;">No venues matched your filters in ${escapeHtml(areaInfo.town)}.</p></div>`
       }
     `;
@@ -834,7 +663,6 @@ out center tags;
     let places = [];
     try {
       places = await searchNearbyPlaces(lastMidpointState.mid.lat, lastMidpointState.mid.lng, mode);
-      await enrichPlacesWithReverse(places, 10);
     } catch (_) {
       places = [];
     }
@@ -907,9 +735,7 @@ out center tags;
         mode = "nightlife";
       }
 
-      let places = await searchNearbyPlaces(center.lat, center.lng, mode, 4200);
-      await enrichPlacesWithReverse(places, 14);
-
+      const places = await searchNearbyPlaces(center.lat, center.lng, mode, 4200);
       renderSoloResults(center, areaInfo, places, filters);
       lastMidpointState = null;
     } catch (err) {
@@ -935,13 +761,12 @@ out center tags;
     try {
       const geoA = await geocodeAddress(a);
       const geoB = await geocodeAddress(b);
-           const mid = midpoint(geoA, geoB);
+      const mid = midpoint(geoA, geoB);
       const midpointInfo = await reverseGeocode(mid.lat, mid.lng);
 
       let places = [];
       try {
         places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
-        await enrichPlacesWithReverse(places, 10);
       } catch (_) {
         places = [];
       }
@@ -981,7 +806,6 @@ out center tags;
       let places = [];
       try {
         places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
-        await enrichPlacesWithReverse(places, 10);
       } catch (_) {
         places = [];
       }
@@ -996,205 +820,29 @@ out center tags;
     }
   }
 
-  async function searchStatewideIntent(intent) {
-    const areaQuery = `
-[out:json][timeout:60];
-area["name"="New Jersey"]["boundary"="administrative"]->.searchArea;
-(
-  node["amenity"](area.searchArea);
-  way["amenity"](area.searchArea);
-  relation["amenity"](area.searchArea);
-  node["tourism"](area.searchArea);
-  way["tourism"](area.searchArea);
-  relation["tourism"](area.searchArea);
-  node["leisure"](area.searchArea);
-  way["leisure"](area.searchArea);
-  relation["leisure"](area.searchArea);
-);
-out center tags;
-`;
-
-    const data = await runOverpassWithFallback(areaQuery);
-    const elements = Array.isArray(data.elements) ? data.elements : [];
-
-    const mapped = elements
-      .map((el) => {
-        const tags = el.tags || {};
-        const lat = el.lat ?? el.center?.lat;
-        const lng = el.lon ?? el.center?.lon;
-        if (!lat || !lng || !tags.name) return null;
-        if (knownClosed({ name: tags.name, fullAddress: "" })) return null;
-
-        const text = normalize(
-          `${tags.name} ${tags.amenity || ""} ${tags.tourism || ""} ${tags.leisure || ""} ${tags.cuisine || ""} ${tags.description || ""}`
-        );
-
-        return {
-          name: tags.name,
-          lat,
-          lng,
-          tags,
-          type: classifyVenue(tags),
-          address: [
-            tags["addr:housenumber"],
-            tags["addr:street"],
-            tags["addr:city"] || tags["addr:town"] || tags["addr:village"]
-          ]
-            .filter(Boolean)
-            .join(" "),
-          phone: tags.phone || tags["contact:phone"] || "",
-          website: tags.website || tags["contact:website"] || tags.url || "",
-          hours: tags.opening_hours || "",
-          menu: tags.menu || tags["contact:menu"] || "",
-          intentScore: 0,
-          text
-        };
-      })
-      .filter(Boolean)
-      .map((place) => {
-        let score = 0;
-
-        if (intent === "rooftop") {
-          if (place.text.includes("rooftop")) score += 100;
-          if (place.text.includes("roof")) score += 40;
-          if (place.text.includes("lounge")) score += 15;
-          if (place.text.includes("bar")) score += 15;
-        }
-
-        if (intent === "brunch") {
-          if (place.text.includes("brunch")) score += 100;
-          if (place.text.includes("restaurant")) score += 20;
-          if (place.hours.includes("Su")) score += 10;
-        }
-
-        if (intent === "live music") {
-          if (place.text.includes("live music")) score += 100;
-          if (place.text.includes("music")) score += 30;
-          if (place.text.includes("concert")) score += 30;
-          if (place.text.includes("theater")) score += 20;
-        }
-
-        if (intent === "country") {
-          if (place.text.includes("country")) score += 100;
-          if (place.text.includes("moose")) score += 20;
-        }
-
-        if (intent === "edm") {
-          if (place.text.includes("edm")) score += 100;
-          if (place.text.includes("dj")) score += 30;
-          if (place.text.includes("nightclub")) score += 20;
-        }
-
-        if (intent === "waterfront") {
-          if (place.text.includes("waterfront")) score += 100;
-          if (place.text.includes("river")) score += 20;
-          if (place.text.includes("harbor")) score += 20;
-          if (place.text.includes("port imperial")) score += 20;
-          if (place.text.includes("ocean")) score += 20;
-        }
-
-        if (place.website) score += 5;
-        if (place.phone) score += 5;
-        if (place.hours) score += 5;
-
-        place.intentScore = score;
-        return place;
-      })
-      .filter((p) => p.intentScore > 0)
-      .sort((a, b) => b.intentScore - a.intentScore)
-      .slice(0, 8);
-
-    await enrichPlacesWithReverse(mapped, 8);
-    return mapped;
-  }
-
-  function renderAIDiscovery(prompt, places, title, subtitle) {
-    els.results.innerHTML = `
-      <h2>Night Plan</h2>
-      <div class="card">
-        <p><b>Prompt:</b> ${escapeHtml(prompt)}</p>
-        <p>${escapeHtml(subtitle)}</p>
-      </div>
-      ${
-        places.length
-          ? places
-              .map((p) => `
-                <div class="card">
-                  <h3 style="margin:0 0 8px;">${escapeHtml(p.name)}</h3>
-                  <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(p.type)}</p>
-                  <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(p.townResolved || p.townHint || "New Jersey")}</p>
-                  <p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(p.fullAddress || p.address || "Address not listed")}</p>
-                  <p style="margin:4px 0;"><b>Hours:</b> ${escapeHtml(p.hours || "Hours not listed")}</p>
-                  ${placeLinksHtml(p, p.townResolved || "New Jersey")}
-                </div>
-              `)
-              .join("")
-          : `<div class="card warning-card"><p style="margin:0;">No strong NJ matches came back for that prompt yet. Try words like rooftop, brunch, live music, country, EDM, waterfront.</p></div>`
-      }
-    `;
-  }
-
   function loadNJVenues() {
     els.results.innerHTML = `
       <div class="card">
         <h3 style="margin-top:0;">Starter NJ towns</h3>
-        <p style="margin-bottom:8px;">Use Solo for one town, Middle for two places, or Group for multiple people.</p>
-        <p style="margin-bottom:0;">Tip: town + venue type + vibe usually works better than a very generic search.</p>
+        <p style="margin-bottom:6px;">Use the starter-town buttons in Solo Search, or run Middle and Group calculations.</p>
       </div>
     `;
   }
 
-  async function generateNightPlan() {
+  function generateNightPlan() {
     const q = els.aiPrompt?.value?.trim();
     if (!q) {
       alert("Enter a night plan prompt.");
       return;
     }
 
-    els.results.innerHTML = `<p>Building a night plan...</p>`;
-
-    const lower = normalize(q);
-
-    let intent = "nightlife";
-    let title = "Night Plan";
-    let subtitle = "Best-matching New Jersey places for your prompt.";
-
-    if (lower.includes("rooftop")) {
-      intent = "rooftop";
-      title = "Top Rooftop Matches";
-      subtitle = "Best-matching rooftop bars and rooftop-style spots in New Jersey.";
-    } else if (lower.includes("brunch")) {
-      intent = "brunch";
-      title = "Sunday Brunch Matches";
-      subtitle = "Best-matching brunch-style places in New Jersey.";
-    } else if (lower.includes("live music") || lower.includes("concert") || lower.includes("band")) {
-      intent = "live music";
-      title = "Live Music Matches";
-      subtitle = "Best-matching live music venues in New Jersey.";
-    } else if (lower.includes("country")) {
-      intent = "country";
-      title = "Country Bar Matches";
-      subtitle = "Best-matching country-style bars and venues in New Jersey.";
-    } else if (lower.includes("edm") || lower.includes("dj")) {
-      intent = "edm";
-      title = "DJ / EDM Matches";
-      subtitle = "Best-matching DJ and nightlife venues in New Jersey.";
-    } else if (lower.includes("waterfront") || lower.includes("riverfront")) {
-      intent = "waterfront";
-      title = "Waterfront Matches";
-      subtitle = "Best-matching waterfront bars and venues in New Jersey.";
-    }
-
-    try {
-      const places = await searchStatewideIntent(intent);
-      renderAIDiscovery(q, places, title, subtitle);
-    } catch (err) {
-      els.results.innerHTML = `
-        <div class="card error-card">
-          <p style="margin:0;">${escapeHtml(err.message || "Night plan failed")}</p>
-        </div>
-      `;
-    }
+    els.results.innerHTML = `
+      <div class="card">
+        <h3 style="margin-top:0;">Night Plan</h3>
+        <p><b>Prompt:</b> ${escapeHtml(q)}</p>
+        <p>Use Solo, Middle, or Group first. Then compare the live places returned below.</p>
+      </div>
+    `;
   }
 
   function setupTabs() {
@@ -1233,77 +881,12 @@ out center tags;
     });
   }
 
-  function addExtraMusicOptions() {
-    if (!els.soloMusic) return;
-
-    const existing = Array.from(els.soloMusic.options).map((o) => o.value);
-    const extras = [
-      { value: "edm", label: "EDM" },
-      { value: "country", label: "Country" }
-    ];
-
-    extras.forEach((item) => {
-      if (!existing.includes(item.value)) {
-        const opt = document.createElement("option");
-        opt.value = item.value;
-        opt.textContent = item.label;
-        els.soloMusic.appendChild(opt);
-      }
-    });
-  }
-
-  function injectHelpText() {
-    const soloPanel = document.getElementById("panel-solo");
-    const middlePanel = document.getElementById("panel-middle");
-    const groupPanel = document.getElementById("panel-group");
-    const aiPanel = document.getElementById("panel-ai");
-
-    if (soloPanel && !soloPanel.querySelector(".solo-help")) {
-      const p = document.createElement("p");
-      p.className = "muted solo-help";
-      p.style.marginTop = "0";
-      p.innerHTML =
-        "Tip: the more specific you are, the better the Solo results get. Example: <b>Hoboken, NJ 07030</b> + tavern + cheap drinks.";
-      soloPanel.insertBefore(p, soloPanel.querySelector("input"));
-    }
-
-    if (middlePanel && !middlePanel.querySelector(".middle-help")) {
-      const p = document.createElement("p");
-      p.className = "muted middle-help";
-      p.style.marginTop = "0";
-      p.textContent =
-        "Tip: use clean addresses or town + ZIP. If your phone adds double commas, delete the extra comma before searching.";
-      middlePanel.insertBefore(p, middlePanel.querySelector("input"));
-    }
-
-    if (groupPanel && !groupPanel.querySelector(".group-help")) {
-      const p = document.createElement("p");
-      p.className = "muted group-help";
-      p.style.marginTop = "0";
-      p.textContent =
-        "Tip: one location per line. Town + ZIP works great, and full street addresses work too.";
-      groupPanel.insertBefore(p, groupPanel.querySelector("textarea"));
-    }
-
-    if (aiPanel && !aiPanel.querySelector(".ai-help")) {
-      const p = document.createElement("p");
-      p.className = "muted ai-help";
-      p.style.marginTop = "0";
-      p.textContent =
-        "Tip: ask broad things here like “top 5 NJ rooftop bars” or “best Sunday brunch spots in New Jersey.”";
-      aiPanel.insertBefore(p, aiPanel.querySelector("input"));
-    }
-  }
-
   if (els.searchBtn) els.searchBtn.onclick = soloSearch;
   if (els.loadNJ) els.loadNJ.onclick = loadNJVenues;
   if (els.middleBtn) els.middleBtn.onclick = meetInMiddle;
   if (els.groupBtn) els.groupBtn.onclick = groupCenter;
   if (els.aiBtn) els.aiBtn.onclick = generateNightPlan;
 
-  addExtraMusicOptions();
-  injectHelpText();
   setupTabs();
   setupStarterTowns();
-});setupStarterTowns();
 });
