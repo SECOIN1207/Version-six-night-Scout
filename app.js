@@ -16,135 +16,32 @@ document.addEventListener("DOMContentLoaded", () => {
     loadNJ: $("loadNJ"),
     middleBtn: $("middleBtn"),
     groupBtn: $("groupBtn"),
-    aiBtn: $("aiBtn"),
-    starterTowns: $("starterTowns"),
-    tabSolo: $("tabSolo"),
-    tabMiddle: $("tabMiddle"),
-    tabGroup: $("tabGroup"),
-    tabAI: $("tabAI"),
-    soloPanel: $("soloPanel"),
-    middlePanel: $("middlePanel"),
-    groupPanel: $("groupPanel"),
-    aiPanel: $("aiPanel")
+    aiBtn: $("aiBtn")
   };
 
-  let lastResults = [];
-  let lastSearchMeta = null;
+  let activeMode = "solo";
 
-  const starterTowns = [
-    "Hoboken",
-    "Weehawken",
-    "Jersey City",
-    "Newark",
-    "Fairview",
-    "Saddle Brook",
-    "Fort Lee",
-    "Asbury Park",
-    "Point Pleasant",
-    "Atlantic City",
-    "Montclair"
+  const NJ_TOWNS = [
+    { town: "Hoboken", zip: "07030", county: "Hudson County", lat: 40.7440, lng: -74.0324 },
+    { town: "Weehawken", zip: "07086", county: "Hudson County", lat: 40.7695, lng: -74.0204 },
+    { town: "Jersey City", zip: "07302", county: "Hudson County", lat: 40.7190, lng: -74.0425 },
+    { town: "Newark", zip: "07105", county: "Essex County", lat: 40.7256, lng: -74.1548 },
+    { town: "Fairview", zip: "07022", county: "Bergen County", lat: 40.8193, lng: -73.9996 },
+    { town: "Saddle Brook", zip: "07663", county: "Bergen County", lat: 40.8984, lng: -74.0926 },
+    { town: "Bayonne", zip: "07002", county: "Hudson County", lat: 40.6687, lng: -74.1143 },
+    { town: "Fort Lee", zip: "07024", county: "Bergen County", lat: 40.8509, lng: -73.9701 },
+    { town: "Asbury Park", zip: "07712", county: "Monmouth County", lat: 40.2204, lng: -74.0121 },
+    { town: "Point Pleasant Beach", zip: "08742", county: "Ocean County", lat: 40.0937, lng: -74.0479 },
+    { town: "Atlantic City", zip: "08401", county: "Atlantic County", lat: 39.3643, lng: -74.4229 },
+    { town: "Montclair", zip: "07042", county: "Essex County", lat: 40.8259, lng: -74.2090 },
+    { town: "Morristown", zip: "07960", county: "Morris County", lat: 40.7968, lng: -74.4815 },
+    { town: "Red Bank", zip: "07701", county: "Monmouth County", lat: 40.3471, lng: -74.0643 },
+    { town: "Seaside Heights", zip: "08751", county: "Ocean County", lat: 39.9443, lng: -74.0729 },
+    { town: "Wildwood", zip: "08260", county: "Cape May County", lat: 38.9918, lng: -74.8149 },
+    { town: "Point Pleasant", zip: "08742", county: "Ocean County", lat: 40.0832, lng: -74.0682 }
   ];
 
-  const townCenters = {
-    "hoboken": { lat: 40.7433, lng: -74.0288, zip: "07030", county: "Hudson County" },
-    "weehawken": { lat: 40.7695, lng: -74.0204, zip: "07086", county: "Hudson County" },
-    "jersey city": { lat: 40.7178, lng: -74.0431, zip: "07302", county: "Hudson County" },
-    "newark": { lat: 40.7357, lng: -74.1724, zip: "07105", county: "Essex County" },
-    "fairview": { lat: 40.8126, lng: -73.9990, zip: "07022", county: "Bergen County" },
-    "saddle brook": { lat: 40.8995, lng: -74.0921, zip: "07663", county: "Bergen County" },
-    "fort lee": { lat: 40.8509, lng: -73.9701, zip: "07024", county: "Bergen County" },
-    "montclair": { lat: 40.8259, lng: -74.2090, zip: "07042", county: "Essex County" },
-    "asbury park": { lat: 40.2204, lng: -74.0121, zip: "07712", county: "Monmouth County" },
-    "point pleasant": { lat: 40.0912, lng: -74.0479, zip: "08742", county: "Ocean County" },
-    "atlantic city": { lat: 39.3643, lng: -74.4229, zip: "08401", county: "Atlantic County" }
-  };
-
-  const venues = [
-    {
-      name: "Ainsworth Hoboken",
-      town: "Hoboken",
-      zip: "07030",
-      county: "Hudson County",
-      lat: 40.7397,
-      lng: -74.0267,
-      type: "restaurant bar",
-      crowd: "30+",
-      music: "dj",
-      vibe: "waterfront",
-      address: "310 Sinatra Dr, Hoboken, NJ 07030",
-      hours: "Typical late afternoon to late night",
-      happyHour: "Often weekday happy hour",
-      events: "Popular for game days and weekend nightlife",
-      notes: "Waterfront restaurant bar with strong social crowd and nightlife crossover"
-    },
-    {
-      name: "Blue Eyes Restaurant",
-      town: "Hoboken",
-      zip: "07030",
-      county: "Hudson County",
-      lat: 40.7445,
-      lng: -74.0257,
-      type: "restaurant bar",
-      crowd: "30+",
-      music: "any",
-      vibe: "waterfront",
-      address: "525 Sinatra Dr, Hoboken, NJ 07030",
-      hours: "Lunch through dinner",
-      happyHour: "Check current specials",
-      events: "Waterfront dining favorite",
-      notes: "Strong Sinatra Drive waterfront pick"
-    },
-    {
-      name: "Halifax",
-      town: "Hoboken",
-      zip: "07030",
-      county: "Hudson County",
-      lat: 40.7391,
-      lng: -74.0283,
-      type: "restaurant bar",
-      crowd: "30+",
-      music: "dj",
-      vibe: "waterfront",
-      address: "225 River St, Hoboken, NJ 07030",
-      hours: "Dinner and late cocktails",
-      happyHour: "Check current happy hour",
-      events: "Hotel nightlife crossover",
-      notes: "At the W area, polished crowd"
-    },
-    {
-      name: "Grand Vin",
-      town: "Hoboken",
-      zip: "07030",
-      county: "Hudson County",
-      lat: 40.7486,
-      lng: -74.0324,
-      type: "lounge",
-      crowd: "30+",
-      music: "live music",
-      vibe: "cheap drinks",
-      address: "500 Grand St, Hoboken, NJ 07030",
-      hours: "Afternoon through night",
-      happyHour: "Known for weekday specials",
-      events: "Live music nights",
-      notes: "More grown-up than college crowd"
-    },
-    {
-      name: "Texas Arizona",
-      town: "Hoboken",
-      zip: "07030",
-      county: "Hudson County",
-      lat: 40.7379,
-      lng: -74.0295,
-      type: "bar",
-      crowd: "20s",
-      music: "dj",
-      vibe: "dancing",
-      address: "76 River St, Hoboken, NJ 07030",
-      hours: "Late-night",
-      happyHour: "Check local specials",
-      events: "Party-heavy nights",
-      notes: "Younger crowd"
-    },
+  const STARTER_VENUES = [
     {
       name: "Son Cubano",
       town: "Weehawken",
@@ -153,65 +50,39 @@ document.addEventListener("DOMContentLoaded", () => {
       lat: 40.7785,
       lng: -74.0078,
       type: "restaurant bar",
-      crowd: "30+",
-      music: "latin",
-      vibe: "waterfront",
-      address: "40 Riverwalk Pl, Weehawken, NJ 07086",
-      hours: "Dinner through late night",
-      happyHour: "Check current cocktail deals",
-      events: "Upscale dinner and nightlife energy",
-      notes: "High-end crowd, very strong waterfront choice"
+      crowd: ["30+", "40+", "50+"],
+      music: ["dj", "latin", "lounge"],
+      vibe: ["waterfront", "upscale", "dancing"],
+      address: "40-4 Riverwalk Pl, West New York, NJ 07093",
+      notes: "Waterfront restaurant-bar with nightlife energy."
     },
     {
-      name: "Blu on the Hudson",
-      town: "Weehawken",
-      zip: "07086",
+      name: "Waterside Restaurant and Catering",
+      town: "North Bergen",
+      zip: "07047",
       county: "Hudson County",
-      lat: 40.7718,
-      lng: -74.0153,
+      lat: 40.7904,
+      lng: -74.0038,
       type: "restaurant bar",
-      crowd: "30+",
-      music: "dj",
-      vibe: "waterfront",
-      address: "1200 Harbor Blvd, Weehawken, NJ 07086",
-      hours: "Dinner through late night",
-      happyHour: "Check current specials",
-      events: "Date-night and nightlife crossover",
-      notes: "Very pretty crowd, upscale energy"
+      crowd: ["30+", "40+", "50+"],
+      music: ["dj", "lounge"],
+      vibe: ["waterfront", "upscale"],
+      address: "7800 B River Rd, North Bergen, NJ 07047",
+      notes: "Waterfront event and nightlife-style restaurant."
     },
     {
-      name: "Cellar 335",
-      town: "Jersey City",
-      zip: "07302",
-      county: "Hudson County",
-      lat: 40.7219,
-      lng: -74.0464,
+      name: "Bar 115",
+      town: "Edgewater",
+      zip: "07020",
+      county: "Bergen County",
+      lat: 40.8132,
+      lng: -73.9795,
       type: "lounge",
-      crowd: "30+",
-      music: "dj",
-      vibe: "dancing",
-      address: "335 Newark Ave, Jersey City, NJ 07302",
-      hours: "Evening to late night",
-      happyHour: "Often available",
-      events: "Weekend nightlife",
-      notes: "Good for nightlife, not a college-only feel"
-    },
-    {
-      name: "Hudson & Co",
-      town: "Jersey City",
-      zip: "07302",
-      county: "Hudson County",
-      lat: 40.7174,
-      lng: -74.0353,
-      type: "restaurant bar",
-      crowd: "30+",
-      music: "dj",
-      vibe: "waterfront",
-      address: "3 2nd St, Jersey City, NJ 07302",
-      hours: "Lunch, dinner, late drinks",
-      happyHour: "Check current waterfront specials",
-      events: "Strong date and group spot",
-      notes: "Good if you want skyline / waterfront feel"
+      crowd: ["30+", "40+"],
+      music: ["dj", "house", "latin"],
+      vibe: ["upscale", "dancing"],
+      address: "115 River Rd, Edgewater, NJ 07020",
+      notes: "Upscale lounge style crowd."
     },
     {
       name: "McGovern's Tavern",
@@ -221,65 +92,109 @@ document.addEventListener("DOMContentLoaded", () => {
       lat: 40.7369,
       lng: -74.1706,
       type: "tavern",
-      crowd: "30+",
-      music: "live music",
-      vibe: "cheap drinks",
+      crowd: ["30+", "40+", "50+"],
+      music: ["live music", "rock"],
+      vibe: ["cheap drinks", "classic"],
       address: "58 New St, Newark, NJ 07102",
-      hours: "Lunch through late night",
-      happyHour: "Classic tavern pricing",
-      events: "Neighborhood and live-music energy",
-      notes: "Not a college bar"
+      notes: "Classic Newark tavern."
     },
     {
-      name: "Adega Grill",
-      town: "Newark",
-      zip: "07105",
-      county: "Essex County",
-      lat: 40.7282,
-      lng: -74.1528,
+      name: "Grand Vin",
+      town: "Hoboken",
+      zip: "07030",
+      county: "Hudson County",
+      lat: 40.7486,
+      lng: -74.0324,
       type: "restaurant bar",
-      crowd: "30+",
-      music: "latin",
-      vibe: "dancing",
-      address: "130 Ferry St, Newark, NJ 07105",
-      hours: "Dinner through nightlife",
-      happyHour: "Check specials",
-      events: "Portuguese / social nightlife crossover",
-      notes: "Can fit the restaurant-with-dancing lane"
+      crowd: ["30+", "40+", "50+"],
+      music: ["live music", "jazz"],
+      vibe: ["upscale"],
+      address: "500 Grand St, Hoboken, NJ 07030",
+      notes: "Grown-up crowd and polished vibe."
     },
     {
-      name: "Ventanas",
-      town: "Fort Lee",
-      zip: "07024",
-      county: "Bergen County",
-      lat: 40.8516,
-      lng: -73.9735,
-      type: "club",
-      crowd: "30+",
-      music: "dj",
-      vibe: "rooftop",
-      address: "200 Park Ave, Fort Lee, NJ 07024",
-      hours: "Dinner and nightlife",
-      happyHour: "Check current cocktail hour",
-      events: "Upscale nightlife nights",
-      notes: "Pretty crowd, high-end vibe"
+      name: "Finnegan's Pub",
+      town: "Hoboken",
+      zip: "07030",
+      county: "Hudson County",
+      lat: 40.7517,
+      lng: -74.0333,
+      type: "pub",
+      crowd: ["30+", "40+"],
+      music: ["live music", "rock"],
+      vibe: ["classic"],
+      address: "734 Willow Ave, Hoboken, NJ 07030",
+      notes: "Classic live music pub."
     },
     {
-      name: "Wellmont Theater",
-      town: "Montclair",
-      zip: "07042",
-      county: "Essex County",
-      lat: 40.8134,
-      lng: -74.2157,
-      type: "music venue",
-      crowd: "30+",
-      music: "live music",
-      vibe: "dancing",
-      address: "5 Seymour St, Montclair, NJ 07042",
-      hours: "Depends on show night",
-      happyHour: "No standard happy hour",
-      events: "Concert hall / live events",
-      notes: "Strong Montclair concert destination"
+      name: "Mills Tavern",
+      town: "Hoboken",
+      zip: "07030",
+      county: "Hudson County",
+      lat: 40.7398,
+      lng: -74.0306,
+      type: "restaurant bar",
+      crowd: ["30+", "40+"],
+      music: ["dj", "top 40"],
+      vibe: ["dancing", "upscale"],
+      address: "125 Washington St, Hoboken, NJ 07030",
+      notes: "Dinner to drinks crossover."
+    },
+    {
+      name: "8th Street Tavern",
+      town: "Hoboken",
+      zip: "07030",
+      county: "Hudson County",
+      lat: 40.7446,
+      lng: -74.0283,
+      type: "tavern",
+      crowd: ["30+", "40+"],
+      music: ["any"],
+      vibe: ["classic"],
+      address: "728 Washington St, Hoboken, NJ 07030",
+      notes: "Neighborhood tavern."
+    },
+    {
+      name: "The Ainsworth",
+      town: "Hoboken",
+      zip: "07030",
+      county: "Hudson County",
+      lat: 40.7378,
+      lng: -74.0270,
+      type: "restaurant bar",
+      crowd: ["30+", "40+"],
+      music: ["dj", "top 40"],
+      vibe: ["waterfront", "sports", "upscale"],
+      address: "310 Sinatra Dr, Hoboken, NJ 07030",
+      notes: "Waterfront restaurant-bar."
+    },
+    {
+      name: "Blue Eyes Restaurant",
+      town: "Hoboken",
+      zip: "07030",
+      county: "Hudson County",
+      lat: 40.7374,
+      lng: -74.0265,
+      type: "restaurant bar",
+      crowd: ["30+", "40+", "50+"],
+      music: ["any"],
+      vibe: ["waterfront", "upscale"],
+      address: "525 Sinatra Dr, Hoboken, NJ 07030",
+      notes: "Waterfront Italian restaurant."
+    },
+    {
+      name: "W Hoboken Lobby Bar",
+      town: "Hoboken",
+      zip: "07030",
+      county: "Hudson County",
+      lat: 40.7391,
+      lng: -74.0253,
+      type: "lounge",
+      crowd: ["30+", "40+", "50+"],
+      music: ["lounge", "dj"],
+      vibe: ["waterfront", "upscale"],
+      address: "225 River St, Hoboken, NJ 07030",
+      notes: "Hotel lounge/bar with upscale crowd."
     },
     {
       name: "Bar Franco",
@@ -289,14 +204,25 @@ document.addEventListener("DOMContentLoaded", () => {
       lat: 40.8177,
       lng: -74.2102,
       type: "lounge",
-      crowd: "30+",
-      music: "dj",
-      vibe: "dancing",
+      crowd: ["30+", "40+"],
+      music: ["dj", "house", "lounge"],
+      vibe: ["upscale"],
       address: "5 Church St, Montclair, NJ 07042",
-      hours: "Evening through late night",
-      happyHour: "Check cocktail specials",
-      events: "Stylish nightlife / date-night crossover",
-      notes: "Good grown-up Montclair lounge"
+      notes: "Stylish cocktail lounge."
+    },
+    {
+      name: "Wellmont Theater",
+      town: "Montclair",
+      zip: "07042",
+      county: "Essex County",
+      lat: 40.8127,
+      lng: -74.2140,
+      type: "concert venue",
+      crowd: ["20s", "30+", "40+", "50+"],
+      music: ["live music"],
+      vibe: ["events"],
+      address: "5 Seymour St, Montclair, NJ 07042",
+      notes: "Major concert hall."
     },
     {
       name: "Stone Pony",
@@ -305,15 +231,12 @@ document.addEventListener("DOMContentLoaded", () => {
       county: "Monmouth County",
       lat: 40.2208,
       lng: -73.9989,
-      type: "music venue",
-      crowd: "20s",
-      music: "live music",
-      vibe: "waterfront",
+      type: "concert venue",
+      crowd: ["20s", "30+", "40+"],
+      music: ["live music", "dj", "rock"],
+      vibe: ["boardwalk", "events"],
       address: "913 Ocean Ave, Asbury Park, NJ 07712",
-      hours: "Depends on event schedule",
-      happyHour: "Not standard",
-      events: "Concerts and seasonal events",
-      notes: "Needs event-night awareness"
+      notes: "Iconic live music venue."
     },
     {
       name: "Watermark",
@@ -323,117 +246,81 @@ document.addEventListener("DOMContentLoaded", () => {
       lat: 40.2197,
       lng: -73.9982,
       type: "lounge",
-      crowd: "30+",
-      music: "dj",
-      vibe: "waterfront",
+      crowd: ["30+", "40+"],
+      music: ["dj", "house", "lounge"],
+      vibe: ["waterfront", "rooftop", "upscale"],
       address: "800 Ocean Ave, Asbury Park, NJ 07712",
-      hours: "Afternoon through late night",
-      happyHour: "Check current specials",
-      events: "Strong weekend / summer nightlife",
-      notes: "Oceanfront nightlife favorite"
+      notes: "Oceanfront lounge."
     },
     {
       name: "Asbury Lanes",
       town: "Asbury Park",
       zip: "07712",
       county: "Monmouth County",
-      lat: 40.2246,
-      lng: -74.0112,
+      lat: 40.2233,
+      lng: -74.0020,
       type: "bar arcade",
-      crowd: "30+",
-      music: "live music",
-      vibe: "dancing",
+      crowd: ["20s", "30+", "40+"],
+      music: ["live music", "dj"],
+      vibe: ["arcade", "events"],
       address: "209 4th Ave, Asbury Park, NJ 07712",
-      hours: "Depends on event / bowling schedule",
-      happyHour: "Check current deals",
-      events: "Bowling, music, events",
-      notes: "Cool bowling / event pick you mentioned"
-    },
-    {
-      name: "Convention Hall",
-      town: "Asbury Park",
-      zip: "07712",
-      county: "Monmouth County",
-      lat: 40.2225,
-      lng: -73.9987,
-      type: "music venue",
-      crowd: "30+",
-      music: "live music",
-      vibe: "waterfront",
-      address: "1300 Ocean Ave, Asbury Park, NJ 07712",
-      hours: "Depends on event schedule",
-      happyHour: "No standard happy hour",
-      events: "Festivals, conventions, shows",
-      notes: "Beer, tattoo, and boardwalk event potential"
+      notes: "Bowling, events, nightlife crossover."
     },
     {
       name: "Jenkinson's",
-      town: "Point Pleasant",
+      town: "Point Pleasant Beach",
       zip: "08742",
       county: "Ocean County",
       lat: 40.0942,
       lng: -74.0362,
       type: "club",
-      crowd: "20s",
-      music: "dj",
-      vibe: "waterfront",
+      crowd: ["20s", "30+"],
+      music: ["dj", "top 40", "house"],
+      vibe: ["boardwalk", "beach", "dancing"],
       address: "300 Ocean Ave, Point Pleasant Beach, NJ 08742",
-      hours: "Seasonal late-night",
-      happyHour: "Seasonal specials",
-      events: "Beach nightlife and boardwalk events",
-      notes: "Strong younger beach crowd"
+      notes: "Major beach nightlife spot."
     },
     {
       name: "Martell's Tiki Bar",
-      town: "Point Pleasant",
+      town: "Point Pleasant Beach",
       zip: "08742",
       county: "Ocean County",
       lat: 40.0947,
       lng: -74.0358,
       type: "bar",
-      crowd: "30+",
-      music: "live music",
-      vibe: "waterfront",
+      crowd: ["20s", "30+", "40+"],
+      music: ["live music", "dj", "top 40"],
+      vibe: ["beach", "boardwalk"],
       address: "308 Boardwalk, Point Pleasant Beach, NJ 08742",
-      hours: "Seasonal beach hours",
-      happyHour: "Check current seasonal deals",
-      events: "Bands and beach weekends",
-      notes: "More beach bar than club"
+      notes: "Big summer beach bar."
     },
     {
-      name: "HQ2 Nightclub",
+      name: "Atlantic City Casino Club",
       town: "Atlantic City",
       zip: "08401",
       county: "Atlantic County",
-      lat: 39.3567,
-      lng: -74.4283,
+      lat: 39.3565,
+      lng: -74.4313,
       type: "club",
-      crowd: "20s",
-      music: "dj",
-      vibe: "rooftop",
-      address: "Hard Rock area, Atlantic City, NJ 08401",
-      hours: "Depends on event schedule",
-      happyHour: "No standard",
-      events: "Guest DJs and casino nightlife",
-      notes: "Atlantic City big-night option"
-    },
-    {
-      name: "Bally's Lobby Bar Area",
-      town: "Atlantic City",
-      zip: "08401",
-      county: "Atlantic County",
-      lat: 39.3578,
-      lng: -74.4346,
-      type: "restaurant bar",
-      crowd: "30+",
-      music: "dj",
-      vibe: "dancing",
-      address: "1900 Pacific Ave, Atlantic City, NJ 08401",
-      hours: "Casino hours",
-      happyHour: "Varies",
-      events: "Casino nightlife traffic",
-      notes: "Casino crowd crossover"
+      crowd: ["20s", "30+", "40+"],
+      music: ["dj", "house", "edm"],
+      vibe: ["casino", "upscale", "events"],
+      address: "1000 Boardwalk, Atlantic City, NJ 08401",
+      notes: "Atlantic City casino nightlife."
     }
+  ];
+
+  const STARTER_TOWNS = [
+    "Hoboken",
+    "Weehawken",
+    "Jersey City",
+    "Newark",
+    "Fairview",
+    "Saddle Brook",
+    "Fort Lee",
+    "Asbury Park",
+    "Point Pleasant Beach",
+    "Atlantic City"
   ];
 
   function escapeHtml(str) {
@@ -449,20 +336,48 @@ document.addEventListener("DOMContentLoaded", () => {
     return String(text || "")
       .toLowerCase()
       .replace(/,/g, " ")
+      .replace(/\./g, " ")
       .replace(/\s+/g, " ")
       .trim();
   }
 
-  function milesBetween(lat1, lon1, lat2, lon2) {
-    const toRad = (d) => (d * Math.PI) / 180;
+  function titleCase(text) {
+    return String(text || "")
+      .split(" ")
+      .map((w) => (w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : ""))
+      .join(" ");
+  }
+
+  function extractZip(text) {
+    const match = String(text || "").match(/\b\d{5}\b/);
+    return match ? match[0] : "";
+  }
+
+  function parseLatLng(text) {
+    const match = String(text || "").match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+    if (!match) return null;
+    return {
+      lat: Number(match[1]),
+      lng: Number(match[2])
+    };
+  }
+
+  function toRad(d) {
+    return (d * Math.PI) / 180;
+  }
+
+  function milesBetween(lat1, lng1, lat2, lng2) {
     const R = 3958.8;
     const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
+    const dLng = toRad(lng2 - lng1);
+
     const a =
-      Math.sin(dLat / 2) ** 2 +
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(toRad(lat1)) *
         Math.cos(toRad(lat2)) *
-        Math.sin(dLon / 2) ** 2;
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+
     return 2 * R * Math.asin(Math.sqrt(a));
   }
 
@@ -480,419 +395,477 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
-  function setActiveTab(mode) {
-    const map = {
-      solo: [els.tabSolo, els.soloPanel],
-      middle: [els.tabMiddle, els.middlePanel],
-      group: [els.tabGroup, els.groupPanel],
-      ai: [els.tabAI, els.aiPanel]
-    };
+  function levenshtein(a, b) {
+    const m = a.length;
+    const n = b.length;
+    const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
 
-    [els.tabSolo, els.tabMiddle, els.tabGroup, els.tabAI].forEach((btn) => {
-      btn.classList.remove("active-tab");
-    });
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
 
-    [els.soloPanel, els.middlePanel, els.groupPanel, els.aiPanel].forEach((panel) => {
-      panel.classList.remove("active");
-    });
-
-    if (map[mode]) {
-      map[mode][0].classList.add("active-tab");
-      map[mode][1].classList.add("active");
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,
+          dp[i][j - 1] + 1,
+          dp[i - 1][j - 1] + cost
+        );
+      }
     }
+
+    return dp[m][n];
   }
 
-  function renderStarterTowns() {
-    els.starterTowns.innerHTML = starterTowns
-      .map(
-        (town) =>
-          `<button type="button" class="starter-town-btn" data-town="${escapeHtml(town)}">${escapeHtml(town)}</button>`
-      )
-      .join("");
+  function bestTownMatch(input) {
+    const n = normalize(input);
+    let best = null;
+    let bestScore = Infinity;
 
-    els.starterTowns.querySelectorAll("[data-town]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        els.soloQuery.value = btn.getAttribute("data-town");
-        setActiveTab("solo");
-        soloSearch();
-      });
-    });
+    for (const town of NJ_TOWNS) {
+      const dist = levenshtein(n, normalize(town.town));
+      if (dist < bestScore) {
+        bestScore = dist;
+        best = town;
+      }
+      if (n.includes(normalize(town.town))) {
+        return town;
+      }
+      if (extractZip(n) && extractZip(n) === town.zip) {
+        return town;
+      }
+    }
+
+    if (best && bestScore <= 3) return best;
+    return null;
   }
 
-  function guessTownFromQuery(query) {
-    const q = normalize(query);
+  function nearestTownByPoint(lat, lng) {
+    let winner = null;
+    let bestMiles = Infinity;
 
-    for (const key of Object.keys(townCenters)) {
-      if (q.includes(key)) {
+    for (const town of NJ_TOWNS) {
+      const d = milesBetween(lat, lng, town.lat, town.lng);
+      if (d < bestMiles) {
+        bestMiles = d;
+        winner = town;
+      }
+    }
+
+    return winner;
+  }
+
+  async function resolveLocation(input) {
+    const raw = String(input || "").trim();
+    if (!raw) throw new Error("Missing location");
+
+    const latlng = parseLatLng(raw);
+    if (latlng) {
+      const town = nearestTownByPoint(latlng.lat, latlng.lng);
+      return {
+        input: raw,
+        display: raw,
+        town: town?.town || "Unknown",
+        zip: town?.zip || "",
+        county: town?.county || "",
+        lat: latlng.lat,
+        lng: latlng.lng
+      };
+    }
+
+    const zip = extractZip(raw);
+    if (zip) {
+      const townByZip = NJ_TOWNS.find((t) => t.zip === zip);
+      if (townByZip) {
         return {
-          town: key
-            .split(" ")
-            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-            .join(" "),
-          ...townCenters[key]
+          input: raw,
+          display: `${townByZip.town}, NJ ${townByZip.zip}`,
+          town: townByZip.town,
+          zip: townByZip.zip,
+          county: townByZip.county,
+          lat: townByZip.lat,
+          lng: townByZip.lng
         };
       }
     }
 
-    const zipMatch = q.match(/\b\d{5}\b/);
-    if (zipMatch) {
-      const zip = zipMatch[0];
-      const found = Object.entries(townCenters).find(([, data]) => data.zip === zip);
-      if (found) {
-        const townName = found[0]
-          .split(" ")
-          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-          .join(" ");
-        return { town: townName, ...found[1] };
-      }
+    const match = bestTownMatch(raw);
+    if (match) {
+      return {
+        input: raw,
+        display: `${match.town}, NJ ${match.zip}`,
+        town: match.town,
+        zip: match.zip,
+        county: match.county,
+        lat: match.lat,
+        lng: match.lng
+      };
     }
 
     throw new Error("Town or ZIP not found in NightScout yet. Try a major NJ town or ZIP.");
   }
 
-  function matchesCrowd(venueCrowd, wantedCrowd) {
-    if (wantedCrowd === "any") return true;
-    return normalize(venueCrowd) === normalize(wantedCrowd);
+  function venueMatchesFilters(venue, filters) {
+    const crowd = filters.crowd || "any";
+    const music = filters.music || "any";
+    const type = filters.venue || "any";
+    const vibe = filters.vibe || "any";
+
+    if (crowd !== "any" && !venue.crowd.includes(crowd)) return false;
+
+    if (music !== "any") {
+      const wanted = normalize(music);
+      const found = venue.music.some((m) => normalize(m).includes(wanted));
+      if (!found) return false;
+    }
+
+    if (type !== "any") {
+      const typeNorm = normalize(type);
+      if (!normalize(venue.type).includes(typeNorm)) return false;
+    }
+
+    if (vibe !== "any") {
+      const vibeNorm = normalize(vibe);
+      const found = venue.vibe.some((v) => normalize(v).includes(vibeNorm));
+      if (!found) return false;
+    }
+
+    return true;
   }
 
-  function matchesMusic(venueMusic, wantedMusic) {
-    if (wantedMusic === "any") return true;
-    return normalize(venueMusic) === normalize(wantedMusic);
+  function venuesNearPoint(lat, lng, maxMiles = 10) {
+    return STARTER_VENUES
+      .map((v) => ({
+        ...v,
+        distance: milesBetween(lat, lng, v.lat, v.lng)
+      }))
+      .filter((v) => v.distance <= maxMiles)
+      .sort((a, b) => a.distance - b.distance);
   }
 
-  function matchesVenueType(venueType, wantedType) {
-    if (wantedType === "any") return true;
-    return normalize(venueType) === normalize(wantedType);
+  function venuesInTown(townName) {
+    const n = normalize(townName);
+    return STARTER_VENUES
+      .filter((v) => normalize(v.town) === n)
+      .map((v) => ({
+        ...v,
+        distance: 0
+      }));
   }
 
-  function matchesVibe(venueVibe, wantedVibe) {
-    if (wantedVibe === "any") return true;
-    return normalize(venueVibe) === normalize(wantedVibe);
-  }
-
-  function renderVenueCard(v, distanceLabel = "") {
-    const directionsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(v.address)}`;
-    const photosLink = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(v.name + " " + v.town)}`;
-    const searchLink = `https://www.google.com/search?q=${encodeURIComponent(v.name + " " + v.town + " NJ nightlife")}`;
+  function buildVenueCard(v) {
+    const q = encodeURIComponent(`${v.name} ${v.address || v.town}`);
+    const photoQ = encodeURIComponent(`${v.name} ${v.town} photos`);
+    const searchQ = encodeURIComponent(`${v.name} ${v.town} NJ`);
 
     return `
       <div class="card">
         <h3>${escapeHtml(v.name)}</h3>
-        <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(v.type)}</p>
-        <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(v.town)}</p>
-        <p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(v.address)}</p>
-        ${distanceLabel ? `<p style="margin:4px 0;"><b>${distanceLabel}</b></p>` : ""}
-        <p style="margin:4px 0;"><b>Crowd:</b> ${escapeHtml(v.crowd)}</p>
-        <p style="margin:4px 0;"><b>Music:</b> ${escapeHtml(v.music)}</p>
-        <p style="margin:4px 0;"><b>Vibe:</b> ${escapeHtml(v.vibe)}</p>
-        <p style="margin:4px 0;"><b>Hours:</b> ${escapeHtml(v.hours)}</p>
-        <p style="margin:4px 0;"><b>Happy hour:</b> ${escapeHtml(v.happyHour)}</p>
-        <p style="margin:4px 0;"><b>Specials / events:</b> ${escapeHtml(v.events)}</p>
-        <p style="margin:4px 0;"><b>Notes:</b> ${escapeHtml(v.notes)}</p>
-
+        <p><b>Type:</b> ${escapeHtml(v.type)}</p>
+        <p><b>Town:</b> ${escapeHtml(v.town)}</p>
+        ${v.address ? `<p><b>Address:</b> ${escapeHtml(v.address)}</p>` : ""}
+        ${typeof v.distance === "number" ? `<p><b>Distance:</b> ${v.distance.toFixed(1)} miles</p>` : ""}
+        ${v.notes ? `<p class="muted">${escapeHtml(v.notes)}</p>` : ""}
         <div class="result-links">
-          <a href="${directionsLink}" target="_blank" rel="noopener noreferrer">Directions</a>
-          <a href="${photosLink}" target="_blank" rel="noopener noreferrer">Photos</a>
-          <a href="${searchLink}" target="_blank" rel="noopener noreferrer">Search</a>
+          <a href="https://www.google.com/maps/search/?api=1&query=${q}" target="_blank" rel="noopener noreferrer">Directions</a>
+          <a href="https://www.google.com/search?tbm=isch&q=${photoQ}" target="_blank" rel="noopener noreferrer">Photos</a>
+          <a href="https://www.google.com/search?q=${searchQ}" target="_blank" rel="noopener noreferrer">Search</a>
         </div>
       </div>
     `;
   }
 
   function renderError(message) {
+    if (!els.results) return;
     els.results.innerHTML = `
-      <div class="card error-card">
+      <div class="card" style="border-color:#e2b4b4;background:#fff4f4;">
         <p style="margin:0;"><b>Error:</b> ${escapeHtml(message)}</p>
       </div>
     `;
   }
 
-  function renderSoloResults(center, townInfo, filtered, filters) {
-    const sorted = filtered
-      .map((v) => ({
-        ...v,
-        distance: milesBetween(center.lat, center.lng, v.lat, v.lng)
-      }))
-      .sort((a, b) => a.distance - b.distance);
-
-    if (!sorted.length) {
-      els.results.innerHTML = `
-        <h2>Solo Search Results</h2>
-        <p class="muted">Showing in-page results for <b>${escapeHtml(townInfo.town)}</b> ${escapeHtml(townInfo.zip)}.</p>
-        <div class="card">
-          <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(townInfo.town)}</p>
-          <p style="margin:4px 0;"><b>ZIP:</b> ${escapeHtml(townInfo.zip)}</p>
-          <p style="margin:4px 0;"><b>County:</b> ${escapeHtml(townInfo.county)}</p>
-          <p style="margin:4px 0;"><b>Filters:</b> Crowd: ${escapeHtml(filters.crowd)} | Music: ${escapeHtml(filters.music)} | Venue: ${escapeHtml(filters.venue)} | Vibe: ${escapeHtml(filters.vibe)}</p>
+  function renderStarterTowns() {
+    return `
+      <div class="solo-panel">
+        <p class="muted small">Solo search stays on this page and searches the town or ZIP you entered.</p>
+        <h3 style="font-size:20px;margin-top:18px;">Starter towns</h3>
+        <div class="chip-row">
+          ${STARTER_TOWNS.map(
+            (town) =>
+              `<button type="button" class="starter-town-btn" data-town="${escapeHtml(town)}">${escapeHtml(town)}</button>`
+          ).join("")}
         </div>
-        <div class="card">
-          No venues matched your current solo filters in ${escapeHtml(townInfo.town)}.
-        </div>
-      `;
-      return;
-    }
-
-    els.results.innerHTML = `
-      <h2>Solo Search Results</h2>
-      <p class="muted">Showing in-page results for <b>${escapeHtml(townInfo.town)}</b> ${escapeHtml(townInfo.zip)}.</p>
-
-      <div class="card">
-        <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(townInfo.town)}</p>
-        <p style="margin:4px 0;"><b>ZIP:</b> ${escapeHtml(townInfo.zip)}</p>
-        <p style="margin:4px 0;"><b>County:</b> ${escapeHtml(townInfo.county)}</p>
-        <p style="margin:4px 0;"><b>Area:</b> ${escapeHtml(townInfo.town)}, New Jersey</p>
-        <p style="margin:4px 0;"><b>Filters:</b> Crowd: ${escapeHtml(filters.crowd)} | Music: ${escapeHtml(filters.music)} | Venue: ${escapeHtml(filters.venue)} | Vibe: ${escapeHtml(filters.vibe)}</p>
       </div>
-
-      ${sorted
-        .map((v) => renderVenueCard(v, `Approx distance from town center: ${v.distance.toFixed(1)} miles`))
-        .join("")}
     `;
   }
 
-  function renderMiddleResults(mid, nearestTown, geoA, geoB, list) {
-    const sorted = list
-      .map((v) => ({
-        ...v,
-        distance: milesBetween(mid.lat, mid.lng, v.lat, v.lng)
-      }))
-      .sort((a, b) => a.distance - b.distance);
+  function renderSoloResults(area, venues, filters) {
+    if (!els.results) return;
+
+    const filtered = venues.filter((v) => venueMatchesFilters(v, filters));
+
+    els.results.innerHTML = `
+      <h2>Solo Search Results</h2>
+      <p class="muted">Showing in-page results for <b>${escapeHtml(area.town)}</b> ${escapeHtml(area.zip)}.</p>
+
+      <div class="card">
+        <p><b>Town:</b> ${escapeHtml(area.town)}</p>
+        <p><b>ZIP:</b> ${escapeHtml(area.zip)}</p>
+        <p><b>County:</b> ${escapeHtml(area.county || "Unknown")}</p>
+        <p><b>Filters:</b> Crowd: ${escapeHtml(filters.crowd)} | Music: ${escapeHtml(filters.music)} | Venue: ${escapeHtml(filters.venue)} | Vibe: ${escapeHtml(filters.vibe)}</p>
+      </div>
+
+      ${
+        filtered.length
+          ? filtered.map(buildVenueCard).join("")
+          : `<div class="card"><p>No venues matched your current solo filters in ${escapeHtml(area.town)}.</p></div>`
+      }
+    `;
+  }
+
+  function renderMiddleResults(a, b, midTown, venues) {
+    if (!els.results) return;
 
     els.results.innerHTML = `
       <h2>Meet in the Middle Results</h2>
       <p class="muted">Closest nightlife options to the calculated midpoint</p>
 
       <div class="card">
-        <p style="margin:4px 0;"><b>Location A:</b> ${escapeHtml(geoA.town)} ${escapeHtml(geoA.zip)}</p>
-        <p style="margin:4px 0;"><b>Location B:</b> ${escapeHtml(geoB.town)} ${escapeHtml(geoB.zip)}</p>
-        <p style="margin:4px 0;"><b>Midpoint Town:</b> ${escapeHtml(nearestTown.town)}</p>
-        <p style="margin:4px 0;"><b>ZIP:</b> ${escapeHtml(nearestTown.zip)}</p>
-        <p style="margin:4px 0;"><b>County:</b> ${escapeHtml(nearestTown.county)}</p>
+        <p><b>Location A:</b> ${escapeHtml(a.display)}</p>
+        <p><b>Location B:</b> ${escapeHtml(b.display)}</p>
+        <p><b>Midpoint Town:</b> ${escapeHtml(midTown.town)}</p>
+        <p><b>ZIP:</b> ${escapeHtml(midTown.zip)}</p>
+        <p><b>County:</b> ${escapeHtml(midTown.county)}</p>
         <div class="result-links">
-          <a href="https://www.google.com/maps?q=${mid.lat},${mid.lng}" target="_blank" rel="noopener noreferrer">Open midpoint in Google Maps</a>
+          <a href="https://www.google.com/maps?q=${midTown.lat},${midTown.lng}" target="_blank" rel="noopener noreferrer">Open midpoint in Google Maps</a>
+          <a href="https://www.google.com/search?q=${encodeURIComponent(`${midTown.town} NJ nightlife events`)}` target="_blank" rel="noopener noreferrer">Search this town</a>
         </div>
       </div>
 
-      ${sorted
-        .slice(0, 12)
-        .map((v) => renderVenueCard(v, `Approx distance from midpoint: ${v.distance.toFixed(1)} miles`))
-        .join("")}
+      ${venues.length ? venues.map(buildVenueCard).join("") : `<div class="card"><p>No nightlife venues found near the midpoint yet.</p></div>`}
     `;
   }
 
-  function renderGroupResults(mid, nearestTown, points, list) {
-    const sorted = list
-      .map((v) => ({
-        ...v,
-        distance: milesBetween(mid.lat, mid.lng, v.lat, v.lng)
-      }))
-      .sort((a, b) => a.distance - b.distance);
+  function renderGroupResults(points, midTown, venues) {
+    if (!els.results) return;
 
     els.results.innerHTML = `
       <h2>Group Center Results</h2>
       <p class="muted">Closest nightlife options to the calculated group midpoint</p>
 
       <div class="card">
-        ${points
-          .map((p, i) => `<p style="margin:4px 0;"><b>Point ${i + 1}:</b> ${escapeHtml(p.town)} ${escapeHtml(p.zip)}</p>`)
-          .join("")}
-        <p style="margin:4px 0;"><b>Midpoint Town:</b> ${escapeHtml(nearestTown.town)}</p>
-        <p style="margin:4px 0;"><b>ZIP:</b> ${escapeHtml(nearestTown.zip)}</p>
-        <p style="margin:4px 0;"><b>County:</b> ${escapeHtml(nearestTown.county)}</p>
+        ${points.map((p, i) => `<p><b>Point ${i + 1}:</b> ${escapeHtml(p.display)}</p>`).join("")}
+        <p><b>Midpoint Town:</b> ${escapeHtml(midTown.town)}</p>
+        <p><b>ZIP:</b> ${escapeHtml(midTown.zip)}</p>
+        <p><b>County:</b> ${escapeHtml(midTown.county)}</p>
         <div class="result-links">
-          <a href="https://www.google.com/maps?q=${mid.lat},${mid.lng}" target="_blank" rel="noopener noreferrer">Open group midpoint in Google Maps</a>
+          <a href="https://www.google.com/maps?q=${midTown.lat},${midTown.lng}" target="_blank" rel="noopener noreferrer">Open group midpoint in Google Maps</a>
+          <a href="https://www.google.com/search?q=${encodeURIComponent(`${midTown.town} NJ nightlife events`)}` target="_blank" rel="noopener noreferrer">Search this town</a>
         </div>
       </div>
 
-      ${sorted
-        .slice(0, 12)
-        .map((v) => renderVenueCard(v, `Approx distance from group midpoint: ${v.distance.toFixed(1)} miles`))
-        .join("")}
+      ${venues.length ? venues.map(buildVenueCard).join("") : `<div class="card"><p>No nightlife venues found near the group center yet.</p></div>`}
     `;
   }
 
-  function renderAiResults(prompt, filtered) {
+  function renderNightPlan(prompt) {
+    if (!els.results) return;
+
+    const p = normalize(prompt);
+
+    let suggestions = [];
+
+    if (p.includes("beach")) {
+      suggestions = STARTER_VENUES.filter((v) => v.vibe.includes("beach") || v.vibe.includes("boardwalk"));
+    } else if (p.includes("rooftop")) {
+      suggestions = STARTER_VENUES.filter((v) => v.vibe.includes("rooftop") || v.vibe.includes("upscale"));
+    } else if (p.includes("dj")) {
+      suggestions = STARTER_VENUES.filter((v) => v.music.includes("dj"));
+    } else if (p.includes("live music")) {
+      suggestions = STARTER_VENUES.filter((v) => v.music.includes("live music"));
+    } else {
+      suggestions = STARTER_VENUES.slice(0, 6);
+    }
+
     els.results.innerHTML = `
       <h2>Night Plan</h2>
       <div class="card">
-        <p style="margin:0;"><b>Prompt:</b> ${escapeHtml(prompt)}</p>
-        <p style="margin-top:10px;">These are the strongest NightScout matches for that prompt.</p>
+        <p><b>Prompt:</b> ${escapeHtml(prompt || "No prompt entered")}</p>
+        <p>Here are some matching starter nightlife ideas:</p>
       </div>
-
-      ${
-        filtered.length
-          ? filtered.map((v) => renderVenueCard(v)).join("")
-          : `<div class="card">No strong direct matches yet. Try a town with your prompt, like "Asbury Park beach bar with DJ" or "Fort Lee rooftop lounge".</div>`
-      }
+      ${suggestions.slice(0, 8).map(buildVenueCard).join("")}
     `;
   }
 
-  function findNearestTown(lat, lng) {
-    return Object.entries(townCenters)
-      .map(([key, value]) => ({
-        town: key
-          .split(" ")
-          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-          .join(" "),
-        ...value,
-        distance: milesBetween(lat, lng, value.lat, value.lng)
-      }))
-      .sort((a, b) => a.distance - b.distance)[0];
-  }
+  function setMode(mode) {
+    activeMode = mode;
 
-  function soloSearch() {
-    try {
-      const q = (els.soloQuery.value || "").trim();
-      if (!q) {
-        alert("Enter a town, ZIP, or address.");
-        return;
+    const allButtons = Array.from(document.querySelectorAll("button"));
+    allButtons.forEach((btn) => {
+      const text = normalize(btn.textContent);
+      const isModeButton =
+        text === "solo" || text === "middle" || text === "group" || text === "ai";
+
+      if (!isModeButton) return;
+
+      if (text === mode) {
+        btn.style.background = "#111";
+        btn.style.color = "#fff";
+      } else {
+        btn.style.background = "#eee";
+        btn.style.color = "#1473d7";
+      }
+    });
+
+    const headers = Array.from(document.querySelectorAll("h3"));
+    headers.forEach((h) => {
+      const t = normalize(h.textContent);
+      const nextEls = [];
+      let sib = h.nextElementSibling;
+      while (sib && sib.tagName !== "H3" && sib.tagName !== "H2") {
+        nextEls.push(sib);
+        sib = sib.nextElementSibling;
       }
 
+      if (t === "solo search") {
+        const show = mode === "solo";
+        h.style.display = show ? "" : "none";
+        nextEls.forEach((el) => (el.style.display = show ? "" : "none"));
+      }
+
+      if (t === "meet in the middle") {
+        const show = mode === "middle";
+        h.style.display = show ? "" : "none";
+        nextEls.forEach((el) => (el.style.display = show ? "" : "none"));
+      }
+
+      if (t === "group coordination") {
+        const show = mode === "group";
+        h.style.display = show ? "" : "none";
+        nextEls.forEach((el) => (el.style.display = show ? "" : "none"));
+      }
+
+      if (t === "night plan") {
+        const show = mode === "ai";
+        h.style.display = show ? "" : "none";
+        nextEls.forEach((el) => (el.style.display = show ? "" : "none"));
+      }
+    });
+  }
+
+  async function soloSearch() {
+    try {
+      const raw = els.soloQuery?.value?.trim();
+      if (!raw) throw new Error("Enter a town, ZIP, address, or lat/lng.");
+
+      const area = await resolveLocation(raw);
+
       const filters = {
-        crowd: els.soloCrowd.value || "any",
-        music: els.soloMusic.value || "any",
-        venue: els.soloVenue.value || "any",
-        vibe: els.soloVibe.value || "any"
+        crowd: els.soloCrowd?.value || "any",
+        music: els.soloMusic?.value || "any",
+        venue: els.soloVenue?.value || "any",
+        vibe: els.soloVibe?.value || "any"
       };
 
-      const townInfo = guessTownFromQuery(q);
-      const center = { lat: townInfo.lat, lng: townInfo.lng };
+      let venues = venuesInTown(area.town);
 
-      const filtered = venues.filter((v) => {
-        if (milesBetween(center.lat, center.lng, v.lat, v.lng) > 18) return false;
-        if (!matchesCrowd(v.crowd, filters.crowd)) return false;
-        if (!matchesMusic(v.music, filters.music)) return false;
-        if (!matchesVenueType(v.type, filters.venue)) return false;
-        if (!matchesVibe(v.vibe, filters.vibe)) return false;
-        return true;
-      });
+      if (!venues.length) {
+        venues = venuesNearPoint(area.lat, area.lng, 8);
+      }
 
-      lastResults = filtered;
-      lastSearchMeta = { mode: "solo", townInfo, center, filters };
-      renderSoloResults(center, townInfo, filtered, filters);
+      renderSoloResults(area, venues, filters);
     } catch (err) {
       renderError(err.message || "Could not run solo search.");
     }
   }
 
-  function meetInMiddle() {
+  async function meetInMiddle() {
     try {
-      const a = (els.locA.value || "").trim();
-      const b = (els.locB.value || "").trim();
+      const rawA = els.locA?.value?.trim();
+      const rawB = els.locB?.value?.trim();
 
-      if (!a || !b) {
-        alert("Enter both locations.");
-        return;
-      }
+      if (!rawA || !rawB) throw new Error("Enter both locations.");
 
-      const geoA = guessTownFromQuery(a);
-      const geoB = guessTownFromQuery(b);
-      const mid = midpoint(geoA, geoB);
-      const nearestTown = findNearestTown(mid.lat, mid.lng);
+      const a = await resolveLocation(rawA);
+      const b = await resolveLocation(rawB);
 
-      const list = venues.filter((v) => {
-        return milesBetween(mid.lat, mid.lng, v.lat, v.lng) <= 18;
-      });
+      const mid = midpoint(a, b);
+      const midTown = nearestTownByPoint(mid.lat, mid.lng);
 
-      lastResults = list;
-      lastSearchMeta = { mode: "middle", mid, nearestTown, geoA, geoB };
-      renderMiddleResults(mid, nearestTown, geoA, geoB, list);
+      const venues = venuesNearPoint(mid.lat, mid.lng, 10);
+
+      renderMiddleResults(a, b, midTown, venues);
     } catch (err) {
       renderError(err.message || "Could not calculate midpoint.");
     }
   }
 
-  function groupCenter() {
+  async function groupCenter() {
     try {
-      const raw = els.groupList.value || "";
-      const lines = raw
+      const lines = String(els.groupList?.value || "")
         .split(/\n+/)
         .map((x) => x.trim())
         .filter(Boolean);
 
       if (lines.length < 2) {
-        alert("Enter at least 2 group locations.");
-        return;
+        throw new Error("Enter at least 2 towns, ZIPs, addresses, or coordinates.");
       }
 
-      const points = lines.map((line) => guessTownFromQuery(line));
-      const mid = centroid(points);
-      const nearestTown = findNearestTown(mid.lat, mid.lng);
+      const points = [];
+      for (const line of lines) {
+        points.push(await resolveLocation(line));
+      }
 
-      const list = venues.filter((v) => {
-        return milesBetween(mid.lat, mid.lng, v.lat, v.lng) <= 20;
-      });
+      const center = centroid(points);
+      const midTown = nearestTownByPoint(center.lat, center.lng);
+      const venues = venuesNearPoint(center.lat, center.lng, 10);
 
-      lastResults = list;
-      lastSearchMeta = { mode: "group", mid, nearestTown, points };
-      renderGroupResults(mid, nearestTown, points, list);
+      renderGroupResults(points, midTown, venues);
     } catch (err) {
       renderError(err.message || "Could not calculate group center.");
     }
   }
 
-  function generateNightPlan() {
-    const prompt = (els.aiPrompt.value || "").trim();
-    if (!prompt) {
-      alert("Enter a night plan prompt.");
-      return;
-    }
-
-    const p = normalize(prompt);
-
-    const filtered = venues.filter((v) => {
-      const blob = normalize(`${v.name} ${v.town} ${v.type} ${v.music} ${v.vibe} ${v.notes} ${v.events}`);
-
-      let score = 0;
-      if (p.includes("rooftop") && blob.includes("rooftop")) score += 3;
-      if (p.includes("beach") && (blob.includes("waterfront") || blob.includes("beach"))) score += 3;
-      if (p.includes("dj") && blob.includes("dj")) score += 3;
-      if (p.includes("lounge") && blob.includes("lounge")) score += 2;
-      if (p.includes("bar") && blob.includes("bar")) score += 2;
-      if (p.includes("club") && blob.includes("club")) score += 2;
-      if (p.includes("live music") && blob.includes("live music")) score += 3;
-      if (p.includes("concert") && blob.includes("music venue")) score += 3;
-      if (p.includes("st patrick") || p.includes("saint patrick")) {
-        if (blob.includes("tavern") || blob.includes("pub") || blob.includes("bar")) score += 2;
-      }
-      if (p.includes("cinco")) {
-        if (blob.includes("latin")) score += 2;
-      }
-
-      v._score = score;
-      return score > 0;
-    }).sort((a, b) => b._score - a._score).slice(0, 10);
-
-    renderAiResults(prompt, filtered);
-  }
-
   function loadNJVenues() {
-    els.results.innerHTML = `
-      <h2>NightScout Starter Guide</h2>
-      <div class="card">
-        <p><b>Use Solo</b> for one town or ZIP.</p>
-        <p><b>Use Middle</b> for two people trying to meet up.</p>
-        <p><b>Use Group</b> for multiple people.</p>
-        <p><b>Use AI</b> for quick nightlife prompts like rooftop lounge, beach bar with DJ, live music, or waterfront restaurant bar.</p>
-      </div>
+    if (!els.results) return;
 
-      <div class="card">
-        <p><b>Starter towns:</b> Hoboken, Weehawken, Jersey City, Newark, Fort Lee, Montclair, Asbury Park, Point Pleasant, Atlantic City.</p>
-      </div>
+    els.results.innerHTML = `
+      <h2>NightScout Starter Towns</h2>
+      ${renderStarterTowns()}
     `;
+
+    document.querySelectorAll(".starter-town-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (els.soloQuery) els.soloQuery.value = btn.getAttribute("data-town") || "";
+        setMode("solo");
+        soloSearch();
+      });
+    });
   }
 
-  els.tabSolo.addEventListener("click", () => setActiveTab("solo"));
-  els.tabMiddle.addEventListener("click", () => setActiveTab("middle"));
-  els.tabGroup.addEventListener("click", () => setActiveTab("group"));
-  els.tabAI.addEventListener("click", () => setActiveTab("ai"));
+  function generateNightPlan() {
+    const prompt = els.aiPrompt?.value?.trim() || "";
+    renderNightPlan(prompt);
+  }
 
-  els.searchBtn.addEventListener("click", soloSearch);
-  els.loadNJ.addEventListener("click", loadNJVenues);
-  els.middleBtn.addEventListener("click", meetInMiddle);
-  els.groupBtn.addEventListener("click", groupCenter);
-  els.aiBtn.addEventListener("click", generateNightPlan);
+  els.searchBtn?.addEventListener("click", soloSearch);
+  els.loadNJ?.addEventListener("click", loadNJVenues);
+  els.middleBtn?.addEventListener("click", meetInMiddle);
+  els.groupBtn?.addEventListener("click", groupCenter);
+  els.aiBtn?.addEventListener("click", generateNightPlan);
 
-  renderStarterTowns();
-  loadNJVenues();
+  const modeButtons = Array.from(document.querySelectorAll("button")).filter((btn) => {
+    const t = normalize(btn.textContent);
+    return t === "solo" || t === "middle" || t === "group" || t === "ai";
+  });
+
+  modeButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const mode = normalize(btn.textContent);
+      setMode(mode);
+    });
+  });
+
+  setMode("solo");
 });
+  
