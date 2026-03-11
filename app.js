@@ -3,6 +3,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const els = {
     soloQuery: $("soloQuery"),
+    soloCrowd: $("soloCrowd"),
+    soloMusic: $("soloMusic"),
+    soloVenue: $("soloVenue"),
+    soloVibe: $("soloVibe"),
     locA: $("locA"),
     locB: $("locB"),
     groupList: $("groupList"),
@@ -16,10 +20,10 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   let lastCenter = null;
-  let lastA = null;
-  let lastB = null;
-  let lastGroup = null;
   let lastMode = "nightlife";
+  let lastMiddleA = null;
+  let lastMiddleB = null;
+  let lastGroupPoints = null;
 
   function escapeHtml(str) {
     return String(str || "")
@@ -43,25 +47,15 @@ document.addEventListener("DOMContentLoaded", () => {
     return match ? match[0] : "";
   }
 
-  function extractTownHint(text) {
-    const cleaned = normalize(text)
-      .replace(/\bnew jersey\b/g, "")
-      .replace(/\bnj\b/g, "")
-      .replace(/\busa\b/g, "")
-      .replace(/\bunited states\b/g, "")
-      .replace(/\b\d{5}\b/g, "")
-      .trim();
-
-    if (!cleaned) return "";
-
-    const parts = cleaned.split(" ").filter(Boolean);
-    if (!parts.length) return "";
-
-    return cleaned;
+  function titleCase(str) {
+    return String(str || "")
+      .split(" ")
+      .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+      .join(" ");
   }
 
   function milesBetween(lat1, lon1, lat2, lon2) {
-    const toRad = (d) => d * Math.PI / 180;
+    const toRad = (d) => (d * Math.PI) / 180;
     const R = 3958.8;
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
@@ -77,8 +71,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function midpoint(a, b) {
     return {
-      lat: (a.lat + a.lat + b.lat - a.lat) / 2,
-      lng: (a.lng + a.lng + b.lng - a.lng) / 2
+      lat: (a.lat + b.lat) / 2,
+      lng: (a.lng + b.lng) / 2
     };
   }
 
@@ -91,12 +85,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function geocodeAddress(address) {
     const query = `${address}, New Jersey, USA`;
-    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(query)}`;
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(
+      query
+    )}`;
 
     const res = await fetch(url, {
-      headers: {
-        "Accept": "application/json"
-      }
+      headers: { Accept: "application/json" }
     });
 
     if (!res.ok) {
@@ -110,7 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const zipHint = extractZip(address);
-    const townHint = extractTownHint(address);
+    const addressNorm = normalize(address);
 
     const scored = data
       .map((item) => {
@@ -119,6 +113,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const blob = normalize(
           [
             display,
+            addr.house_number,
+            addr.road,
             addr.city,
             addr.town,
             addr.village,
@@ -127,27 +123,30 @@ document.addEventListener("DOMContentLoaded", () => {
             addr.county,
             addr.state,
             addr.postcode
-          ].filter(Boolean).join(" ")
+          ]
+            .filter(Boolean)
+            .join(" ")
         );
 
         let score = 0;
 
-        if (blob.includes("new jersey")) score += 50;
-        if ((addr.state || "").toLowerCase() === "new jersey") score += 80;
+        if (blob.includes("new jersey")) score += 100;
+        if (String(addr.state || "").toLowerCase() === "new jersey") score += 150;
 
-        if (zipHint && String(addr.postcode || "") === zipHint) score += 200;
+        if (zipHint && String(addr.postcode || "") === zipHint) score += 250;
 
-        if (townHint) {
-          const words = townHint.split(" ").filter(Boolean);
-          let townWordHits = 0;
-          for (const w of words) {
-            if (blob.includes(w)) townWordHits += 1;
-          }
-          score += townWordHits * 25;
+        const chunks = addressNorm.split(" ").filter(Boolean);
+        for (const c of chunks) {
+          if (blob.includes(c)) score += 12;
         }
 
-        if (blob.includes("road") || blob.includes("drive") || blob.includes("avenue") || blob.includes("street")) {
-          score -= 8;
+        if (
+          blob.includes("road") ||
+          blob.includes("drive") ||
+          blob.includes("avenue") ||
+          blob.includes("street")
+        ) {
+          score -= 5;
         }
 
         return { item, score };
@@ -168,9 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`;
 
     const res = await fetch(url, {
-      headers: {
-        "Accept": "application/json"
-      }
+      headers: { Accept: "application/json" }
     });
 
     if (!res.ok) {
@@ -189,16 +186,12 @@ document.addEventListener("DOMContentLoaded", () => {
       addr.county ||
       "Unknown area";
 
-    const zip = addr.postcode || "";
-    const county = addr.county || "";
-    const state = addr.state || "";
-
     return {
       town,
-      zip,
-      county,
-      state,
-      address: data.display_name || `${town}, ${state}`
+      zip: addr.postcode || "",
+      county: addr.county || "",
+      state: addr.state || "",
+      address: data.display_name || ""
     };
   }
 
@@ -215,11 +208,15 @@ document.addEventListener("DOMContentLoaded", () => {
     if (amenity === "bar") return "Bar";
     if (amenity === "biergarten") return "Beer Garden";
     if (amenity === "casino") return "Casino";
+    if (text.includes("tavern")) return "Tavern";
+    if (text.includes("lounge")) return "Lounge";
+    if (text.includes("dive")) return "Dive Bar";
     if (leisure === "bowling_alley") return "Bowling / Arcade";
     if (text.includes("billiard") || text.includes("pool hall") || text.includes("poolroom")) return "Pool Hall";
     if (text.includes("axe") || text.includes("ax throwing")) return "Axe Throwing";
     if (text.includes("arcade")) return "Bar Arcade";
     if (text.includes("music") || text.includes("concert") || text.includes("live")) return "Music Venue";
+    if (amenity === "restaurant" && (text.includes("bar") || text.includes("lounge"))) return "Restaurant Bar";
     if (amenity === "restaurant") return "Restaurant";
     if (amenity === "cafe") return "Cafe";
     if (amenity === "fast_food") return "Fast Food";
@@ -242,11 +239,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (cuisine.includes("thai")) return "Thai";
     if (cuisine.includes("indian")) return "Indian";
     if (cuisine.includes("pizza")) return "Pizza";
-
-    return cuisine
-      .split(";")[0]
-      .split(",")[0]
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+    return titleCase(cuisine.split(";")[0].split(",")[0]);
   }
 
   function matchesMode(tags = {}, mode = "nightlife") {
@@ -263,6 +256,9 @@ document.addEventListener("DOMContentLoaded", () => {
       amenity === "nightclub" ||
       amenity === "biergarten" ||
       amenity === "casino" ||
+      text.includes("tavern") ||
+      text.includes("lounge") ||
+      text.includes("dive") ||
       leisure === "bowling_alley" ||
       text.includes("arcade") ||
       text.includes("axe") ||
@@ -270,7 +266,6 @@ document.addEventListener("DOMContentLoaded", () => {
       text.includes("concert") ||
       text.includes("billiard") ||
       text.includes("pool hall") ||
-      text.includes("lounge") ||
       text.includes("dance") ||
       text.includes("dj");
 
@@ -294,9 +289,65 @@ document.addEventListener("DOMContentLoaded", () => {
     return true;
   }
 
-  async function searchNearbyPlaces(lat, lng, mode = "nightlife") {
-    const radiusMeters = 3000;
+  function matchesSoloFilters(place, filters) {
+    const typeText = normalize(`${place.type} ${place.name} ${place.amenity} ${place.cuisine}`);
+    const addrText = normalize(place.address);
+    const combined = `${typeText} ${addrText}`;
 
+    if (filters.venue !== "any") {
+      const venueMap = {
+        bar: ["bar"],
+        pub: ["pub"],
+        tavern: ["tavern"],
+        lounge: ["lounge"],
+        club: ["club", "nightclub"],
+        "dive bar": ["dive"],
+        "pool hall": ["pool hall", "billiard"],
+        "bar arcade": ["arcade"],
+        "axe throwing": ["axe"],
+        "restaurant bar": ["restaurant bar", "lounge", "bar"],
+        restaurant: ["restaurant", "cafe", "fast food"]
+      };
+
+      const targets = venueMap[filters.venue] || [filters.venue];
+      const ok = targets.some((t) => combined.includes(normalize(t)));
+      if (!ok) return false;
+    }
+
+    if (filters.music !== "any") {
+      const musicTargets = {
+        "live music": ["live", "music", "concert"],
+        dj: ["dj", "dance", "nightclub", "club"],
+        "hip hop": ["hip hop"],
+        house: ["house"],
+        rock: ["rock"],
+        latin: ["latin"],
+        "top 40": ["top 40"]
+      };
+
+      const targets = musicTargets[filters.music] || [filters.music];
+      const ok = targets.some((t) => combined.includes(normalize(t)));
+      if (!ok) return false;
+    }
+
+    if (filters.vibe !== "any") {
+      const vibeTargets = {
+        waterfront: ["waterfront", "river", "harbor", "pier"],
+        rooftop: ["rooftop", "roof"],
+        sports: ["sports", "stadium"],
+        dancing: ["dance", "dancing", "dj", "nightclub", "club"],
+        "cheap drinks": ["pub", "dive", "tavern", "bar"]
+      };
+
+      const targets = vibeTargets[filters.vibe] || [filters.vibe];
+      const ok = targets.some((t) => combined.includes(normalize(t)));
+      if (!ok) return false;
+    }
+
+    return true;
+  }
+
+  async function searchNearbyPlaces(lat, lng, mode = "nightlife", radiusMeters = 3000) {
     const overpassQuery = `
       [out:json][timeout:25];
       (
@@ -365,7 +416,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const seen = new Set();
 
     for (const item of mapped) {
-      const key = `${item.name.toLowerCase()}|${item.address.toLowerCase()}`;
+      const key = `${normalize(item.name)}|${normalize(item.address)}`;
       if (!seen.has(key)) {
         seen.add(key);
         deduped.push(item);
@@ -406,51 +457,18 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
   }
 
-  function wireModeButtons() {
-    document.querySelectorAll("[data-mode]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const mode = btn.getAttribute("data-mode");
-        lastMode = mode;
-
-        if (!lastCenter) return;
-
-        try {
-          if (els.results) {
-            els.results.innerHTML = `<p>Loading ${mode} near ${escapeHtml(lastCenter.midpointInfo.town)}...</p>`;
-          }
-
-          const places = await searchNearbyPlaces(lastCenter.mid.lat, lastCenter.mid.lng, mode);
-
-          if (lastCenter.kind === "middle") {
-            renderMiddleResults(lastCenter.mid, lastCenter.midpointInfo, places, lastA, lastB, mode);
-          } else if (lastCenter.kind === "group") {
-            renderGroupResults(lastCenter.mid, lastCenter.midpointInfo, places, lastGroup, mode, lastCenter.outlierNote);
-          }
-        } catch (err) {
-          if (els.results) {
-            els.results.innerHTML = `
-              <div class="card" style="border:1px solid #f0b4b4;border-radius:16px;padding:14px;margin:14px 0;background:#fff3f3;">
-                <p style="margin:0;"><b>Error:</b> ${escapeHtml(err.message || "Could not switch result mode")}</p>
-              </div>
-            `;
-          }
-        }
-      });
-    });
-  }
-
-  function placeCardsHtml(mid, midpointInfo, places, mode) {
+  function placeCardsHtml(center, midpointInfo, places, mode) {
     const sorted = places
       .map((p) => ({
         ...p,
-        distance: milesBetween(mid.lat, mid.lng, p.lat, p.lng)
+        distance: milesBetween(center.lat, center.lng, p.lat, p.lng)
       }))
       .sort((a, b) => a.distance - b.distance)
-      .slice(0, 15);
+      .slice(0, 20);
 
     if (!sorted.length) {
       return `
-        <div class="card" style="border:1px solid #ddd;border-radius:16px;padding:14px;margin:14px 0;background:#fafafa;">
+        <div class="card">
           <p style="margin:0;">
             No ${escapeHtml(mode)} results came back in ${escapeHtml(midpointInfo.town)}.
           </p>
@@ -469,13 +487,13 @@ document.addEventListener("DOMContentLoaded", () => {
         )}`;
 
         return `
-          <div class="card" style="border:1px solid #ddd;border-radius:16px;padding:14px;margin:14px 0;background:#fafafa;">
+          <div class="card">
             <h3 style="margin:0 0 8px;">${escapeHtml(p.name)}</h3>
             <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(p.type)}</p>
             <p style="margin:4px 0;"><b>Area:</b> ${escapeHtml(midpointInfo.town)}${midpointInfo.zip ? ` ${escapeHtml(midpointInfo.zip)}` : ""}</p>
-            <p style="margin:4px 0;"><b>Approx distance from midpoint:</b> ${p.distance.toFixed(1)} miles</p>
+            <p style="margin:4px 0;"><b>Approx distance from center:</b> ${p.distance.toFixed(1)} miles</p>
             ${p.address ? `<p style="margin:4px 0;">${escapeHtml(p.address)}</p>` : ""}
-            <div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;">
+            <div class="result-links">
               <a href="${mapLink}" target="_blank" rel="noopener noreferrer">Maps</a>
               <a href="${searchLink}" target="_blank" rel="noopener noreferrer">Search</a>
             </div>
@@ -495,16 +513,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     els.results.innerHTML = `
       <h2>Meet in the Middle Results</h2>
-      <p style="color:#666;margin-top:0;">Closest ${escapeHtml(modeLabel)} options to the calculated midpoint</p>
+      <p class="muted" style="margin-top:0;">Closest ${escapeHtml(modeLabel)} options to the calculated midpoint</p>
 
-      <div class="card" style="border:1px solid #ddd;border-radius:16px;padding:14px;margin:14px 0;background:#fafafa;">
+      <div class="card">
         <p style="margin:4px 0;"><b>Location A:</b> ${escapeHtml(geoA.display)}</p>
         <p style="margin:4px 0;"><b>Location B:</b> ${escapeHtml(geoB.display)}</p>
         <p style="margin:10px 0 4px;"><b>Midpoint Town:</b> ${escapeHtml(midpointInfo.town)}</p>
         <p style="margin:4px 0;"><b>ZIP:</b> ${escapeHtml(midpointInfo.zip || "Not available")}</p>
         ${midpointInfo.county ? `<p style="margin:4px 0;"><b>County:</b> ${escapeHtml(midpointInfo.county)}</p>` : ""}
         <p style="margin:4px 0;"><b>Area:</b> ${escapeHtml(midpointInfo.address)}</p>
-        <div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;">
+        <div class="result-links">
           <a href="https://www.google.com/maps?q=${mid.lat},${mid.lng}" target="_blank" rel="noopener noreferrer">Open midpoint in Google Maps</a>
           <a href="https://www.google.com/search?q=${encodeURIComponent(`${midpointInfo.town} NJ bars restaurants clubs lounges`) }" target="_blank" rel="noopener noreferrer">Search this town</a>
         </div>
@@ -531,9 +549,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     els.results.innerHTML = `
       <h2>Group Center Results</h2>
-      <p style="color:#666;margin-top:0;">Closest ${escapeHtml(modeLabel)} options to the group midpoint</p>
+      <p class="muted" style="margin-top:0;">Closest ${escapeHtml(modeLabel)} options to the calculated group midpoint</p>
 
-      <div class="card" style="border:1px solid #ddd;border-radius:16px;padding:14px;margin:14px 0;background:#fafafa;">
+      <div class="card">
         ${groupLines}
         <p style="margin:10px 0 4px;"><b>Midpoint Town:</b> ${escapeHtml(midpointInfo.town)}</p>
         <p style="margin:4px 0;"><b>ZIP:</b> ${escapeHtml(midpointInfo.zip || "Not available")}</p>
@@ -544,7 +562,7 @@ document.addEventListener("DOMContentLoaded", () => {
             ? `<div class="card" style="border:1px solid #f0d08a;background:#fff9e8;margin-top:12px;"><p style="margin:0;"><b>Possible bad match:</b> ${escapeHtml(outlierNote)}</p></div>`
             : ""
         }
-        <div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;">
+        <div class="result-links">
           <a href="https://www.google.com/maps?q=${mid.lat},${mid.lng}" target="_blank" rel="noopener noreferrer">Open group midpoint in Google Maps</a>
           <a href="https://www.google.com/search?q=${encodeURIComponent(`${midpointInfo.town} NJ bars restaurants clubs lounges`) }" target="_blank" rel="noopener noreferrer">Search this town</a>
         </div>
@@ -555,6 +573,77 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
 
     wireModeButtons();
+  }
+
+  function renderSoloResults(center, areaInfo, places, filters) {
+    if (!els.results) return;
+
+    const filtered = places.filter((p) => matchesSoloFilters(p, filters));
+
+    const intro = `
+      <h2>Solo Search Results</h2>
+      <p class="muted" style="margin-top:0;">
+        Showing in-page results for <b>${escapeHtml(areaInfo.town)}</b>${areaInfo.zip ? ` ${escapeHtml(areaInfo.zip)}` : ""}.
+      </p>
+
+      <div class="card">
+        <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(areaInfo.town)}</p>
+        <p style="margin:4px 0;"><b>ZIP:</b> ${escapeHtml(areaInfo.zip || "Not available")}</p>
+        ${areaInfo.county ? `<p style="margin:4px 0;"><b>County:</b> ${escapeHtml(areaInfo.county)}</p>` : ""}
+        <p style="margin:4px 0;"><b>Area:</b> ${escapeHtml(areaInfo.address)}</p>
+        <p style="margin:10px 0 0;"><b>Filters:</b>
+          Crowd: ${escapeHtml(filters.crowd)} |
+          Music: ${escapeHtml(filters.music)} |
+          Venue: ${escapeHtml(filters.venue)} |
+          Vibe: ${escapeHtml(filters.vibe)}
+        </p>
+      </div>
+    `;
+
+    if (!filtered.length) {
+      els.results.innerHTML = `
+        ${intro}
+        <div class="card">
+          <p style="margin:0;">No venues matched your current solo filters in ${escapeHtml(areaInfo.town)}.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const sorted = filtered
+      .map((p) => ({
+        ...p,
+        distance: milesBetween(center.lat, center.lng, p.lat, p.lng)
+      }))
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 20);
+
+    els.results.innerHTML = `
+      ${intro}
+      ${sorted
+        .map((p) => {
+          const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+            `${p.name} ${p.address || areaInfo.town}`
+          )}`;
+          const searchLink = `https://www.google.com/search?q=${encodeURIComponent(
+            `${p.name} ${areaInfo.town} NJ`
+          )}`;
+          return `
+            <div class="card">
+              <h3 style="margin:0 0 8px;">${escapeHtml(p.name)}</h3>
+              <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(p.type)}</p>
+              <p style="margin:4px 0;"><b>Area:</b> ${escapeHtml(areaInfo.town)}${areaInfo.zip ? ` ${escapeHtml(areaInfo.zip)}` : ""}</p>
+              <p style="margin:4px 0;"><b>Approx distance from town center:</b> ${p.distance.toFixed(1)} miles</p>
+              ${p.address ? `<p style="margin:4px 0;">${escapeHtml(p.address)}</p>` : ""}
+              <div class="result-links">
+                <a href="${mapLink}" target="_blank" rel="noopener noreferrer">Maps</a>
+                <a href="${searchLink}" target="_blank" rel="noopener noreferrer">Search</a>
+              </div>
+            </div>
+          `;
+        })
+        .join("")}
+    `;
   }
 
   function detectOutliers(points) {
@@ -582,6 +671,90 @@ document.addEventListener("DOMContentLoaded", () => {
       .join(" | ");
 
     return { kept, removed, note };
+  }
+
+  function wireModeButtons() {
+    document.querySelectorAll("[data-mode]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const mode = btn.getAttribute("data-mode");
+        lastMode = mode;
+
+        if (!lastCenter) return;
+
+        try {
+          if (els.results) {
+            els.results.innerHTML = `<p>Loading ${mode} near ${escapeHtml(lastCenter.midpointInfo.town)}...</p>`;
+          }
+
+          const places = await searchNearbyPlaces(lastCenter.mid.lat, lastCenter.mid.lng, mode);
+
+          if (lastCenter.kind === "middle") {
+            renderMiddleResults(lastCenter.mid, lastCenter.midpointInfo, places, lastMiddleA, lastMiddleB, mode);
+          } else if (lastCenter.kind === "group") {
+            renderGroupResults(lastCenter.mid, lastCenter.midpointInfo, places, lastGroupPoints, mode, lastCenter.outlierNote);
+          }
+        } catch (err) {
+          if (els.results) {
+            els.results.innerHTML = `
+              <div class="card" style="border:1px solid #f0b4b4;background:#fff3f3;">
+                <p style="margin:0;"><b>Error:</b> ${escapeHtml(err.message || "Could not switch mode")}</p>
+              </div>
+            `;
+          }
+        }
+      });
+    });
+  }
+
+  async function soloSearch() {
+    const q = els.soloQuery?.value?.trim();
+    if (!q) {
+      alert("Enter a town, ZIP, or address.");
+      return;
+    }
+
+    const filters = {
+      crowd: els.soloCrowd?.value || "any",
+      music: els.soloMusic?.value || "any",
+      venue: els.soloVenue?.value || "any",
+      vibe: els.soloVibe?.value || "any"
+    };
+
+    const originalText = els.searchBtn ? els.searchBtn.textContent : "";
+    if (els.searchBtn) {
+      els.searchBtn.disabled = true;
+      els.searchBtn.textContent = "Searching...";
+    }
+
+    if (els.results) {
+      els.results.innerHTML = `<p>Searching ${escapeHtml(q)} and keeping the results on this page...</p>`;
+    }
+
+    try {
+      const center = await geocodeAddress(q);
+      const areaInfo = await reverseGeocode(center.lat, center.lng);
+
+      const mode = filters.venue === "restaurant" ? "restaurants" : "everything";
+      const places = await searchNearbyPlaces(center.lat, center.lng, mode, 3500);
+
+      renderSoloResults(center, areaInfo, places, filters);
+    } catch (err) {
+      console.error(err);
+      if (els.results) {
+        els.results.innerHTML = `
+          <div class="card" style="border:1px solid #f0b4b4;background:#fff3f3;">
+            <p style="margin:0;"><b>Error:</b> ${escapeHtml(err.message || "Could not run solo search")}</p>
+          </div>
+        `;
+      } else {
+        alert(err.message || "Could not run solo search");
+      }
+    } finally {
+      if (els.searchBtn) {
+        els.searchBtn.disabled = false;
+        els.searchBtn.textContent = originalText || "Search";
+      }
+    }
   }
 
   async function meetInMiddle() {
@@ -613,9 +786,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const midpointInfo = await reverseGeocode(mid.lat, mid.lng);
       const places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
 
-      lastA = geoA;
-      lastB = geoB;
-      lastGroup = null;
+      lastMiddleA = geoA;
+      lastMiddleB = geoB;
+      lastGroupPoints = null;
       lastCenter = { kind: "middle", mid, midpointInfo };
       lastMode = "nightlife";
 
@@ -624,12 +797,10 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error(err);
       if (els.results) {
         els.results.innerHTML = `
-          <div class="card" style="border:1px solid #f0b4b4;border-radius:16px;padding:14px;margin:14px 0;background:#fff3f3;">
+          <div class="card" style="border:1px solid #f0b4b4;background:#fff3f3;">
             <p style="margin:0;"><b>Error:</b> ${escapeHtml(err.message || "Something went wrong")}</p>
           </div>
         `;
-      } else {
-        alert(err.message || "Something went wrong");
       }
     } finally {
       if (els.middleBtn) {
@@ -641,9 +812,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function groupCenter() {
     const raw = els.groupList?.value || "";
+
     const lines = raw
       .split(/\n+/)
-      .map((x) => x.trim())
+      .map((x) =>
+        x
+          .trim()
+          .replace(/\s+/g, " ")
+          .replace(/,+/g, ",")
+          .replace(/Dr\./gi, "Dr, ")
+          .replace(/St\./gi, "St, ")
+          .replace(/Ave\./gi, "Ave, ")
+          .replace(/\bSaddlebrook\b/gi, "Saddle Brook")
+          .replace(/\bFairview,\s*New Jersey\s*07105\b/gi, "Fairview, NJ 07022")
+      )
       .filter(Boolean);
 
     if (lines.length < 2) {
@@ -663,6 +845,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const groupGeos = [];
+
       for (const line of lines) {
         const geo = await geocodeAddress(line);
         geo.input = line;
@@ -676,9 +859,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const midpointInfo = await reverseGeocode(mid.lat, mid.lng);
       const places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
 
-      lastA = null;
-      lastB = null;
-      lastGroup = cleanedPoints;
+      lastMiddleA = null;
+      lastMiddleB = null;
+      lastGroupPoints = cleanedPoints;
       lastCenter = {
         kind: "group",
         mid,
@@ -692,12 +875,17 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error(err);
       if (els.results) {
         els.results.innerHTML = `
-          <div class="card" style="border:1px solid #f0b4b4;border-radius:16px;padding:14px;margin:14px 0;background:#fff3f3;">
+          <div class="card" style="border:1px solid #f0b4b4;background:#fff3f3;">
             <p style="margin:0;"><b>Error:</b> ${escapeHtml(err.message || "Could not calculate group midpoint")}</p>
+            <p style="margin:10px 0 0;">
+              Try full lines like:<br>
+              112 Washington St, Hoboken, NJ 07030<br>
+              367 Henry St, Fairview, NJ 07022<br>
+              137 Fleming Ave, Newark, NJ 07105<br>
+              142 Rehart Dr, Saddle Brook, NJ 07663
+            </p>
           </div>
         `;
-      } else {
-        alert(err.message || "Could not calculate group midpoint");
       }
     } finally {
       if (els.groupBtn) {
@@ -712,27 +900,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     els.results.innerHTML = `
       <h2>NightScout</h2>
-      <p>Use <b>Meet in the Middle</b> or <b>Group Center</b> to calculate a real midpoint town, then NightScout will show nightlife or restaurants for that area.</p>
-      <div class="card" style="border:1px solid #ddd;border-radius:16px;padding:14px;margin:14px 0;background:#fafafa;">
-        <p style="margin:0;"><b>Tip:</b> In group mode, use exact town names with ZIP codes when possible, like <b>Saddle Brook NJ 07663</b> and <b>Fairview NJ 07022</b>.</p>
-      </div>
-    `;
-  }
-
-  function soloSearch() {
-    const q = els.soloQuery?.value?.trim();
-    if (!q) {
-      alert("Enter a town, ZIP, or address.");
-      return;
-    }
-
-    if (!els.results) return;
-
-    els.results.innerHTML = `
-      <h2>Solo Search</h2>
-      <div class="card" style="border:1px solid #ddd;border-radius:16px;padding:14px;margin:14px 0;background:#fafafa;">
-        <p style="margin:0 0 10px;"><b>Search:</b> ${escapeHtml(q)}</p>
-        <a href="https://www.google.com/search?q=${encodeURIComponent(`${q} NJ bars pubs taverns lounges clubs pool halls bar arcades axe throwing music venues`) }" target="_blank" rel="noopener noreferrer">Search nightlife in this town</a>
+      <p>Use <b>Solo Search</b> for one town, <b>Meet in the Middle</b> for two locations, or <b>Group Center</b> for multiple people.</p>
+      <div class="card">
+        <p style="margin:0;">
+          <b>Tip:</b> In group mode, use exact town names with ZIP codes when possible,
+          like <b>Saddle Brook NJ 07663</b> and <b>Fairview NJ 07022</b>.
+        </p>
       </div>
     `;
   }
@@ -743,16 +916,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     els.results.innerHTML = `
       <h2>Night Plan</h2>
-      <div class="card" style="border:1px solid #ddd;border-radius:16px;padding:14px;margin:14px 0;background:#fafafa;">
+      <div class="card">
         <p style="margin:0;"><b>Prompt:</b> ${escapeHtml(q || "No prompt entered")}</p>
-        <p style="margin-top:10px;">Use Meet in the Middle first, then switch between <b>Nightlife</b> and <b>Restaurants</b> in the results.</p>
+        <p style="margin-top:10px;">
+          Use Solo Search, Meet in the Middle, or Group Center first, then refine your choice from the results.
+        </p>
       </div>
     `;
   }
 
-  if (els.middleBtn) els.middleBtn.addEventListener("click", meetInMiddle);
-  if (els.groupBtn) els.groupBtn.addEventListener("click", groupCenter);
-  if (els.loadNJ) els.loadNJ.addEventListener("click", loadNJVenues);
-  if (els.searchBtn) els.searchBtn.addEventListener("click", soloSearch);
-  if (els.aiBtn) els.aiBtn.addEventListener("click", generateNightPlan);
+  els.searchBtn?.addEventListener("click", soloSearch);
+  els.loadNJ?.addEventListener("click", loadNJVenues);
+  els.middleBtn?.addEventListener("click", meetInMiddle);
+  els.groupBtn?.addEventListener("click", groupCenter);
+  els.aiBtn?.addEventListener("click", generateNightPlan);
+});generateNightPlan);
 });
