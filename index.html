@@ -21,7 +21,7 @@
 
     h2 {
       margin-top: 40px;
-      font-size: 52px;
+      font-size: 50px;
       line-height: 1.05;
     }
 
@@ -48,6 +48,12 @@
       cursor: pointer;
       font-weight: 700;
       font-size: 18px;
+    }
+
+    button.active-tab {
+      background: #111;
+      color: #fff;
+      border-color: #111;
     }
 
     button:disabled {
@@ -136,6 +142,32 @@
       font-size: 18px;
     }
 
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active-panel {
+      display: block;
+    }
+
+    .starter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+      max-width: 980px;
+    }
+
+    .starter-chip {
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: 2px solid #ccc;
+      background: #f5f5f5;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 18px;
+    }
+
     @media (max-width: 700px) {
       body {
         margin: 20px;
@@ -157,7 +189,8 @@
         font-size: 18px;
       }
 
-      button {
+      button,
+      .starter-chip {
         font-size: 17px;
       }
 
@@ -183,101 +216,111 @@
   <h2>NJ nightlife</h2>
 
   <div class="chip-row">
-    <button type="button">Solo</button>
-    <button type="button">Middle</button>
-    <button type="button">Group</button>
-    <button type="button">AI</button>
+    <button type="button" class="tab-btn active-tab" data-tab="solo">Solo</button>
+    <button type="button" class="tab-btn" data-tab="middle">Middle</button>
+    <button type="button" class="tab-btn" data-tab="group">Group</button>
+    <button type="button" class="tab-btn" data-tab="ai">AI</button>
   </div>
 
   <p class="muted">
-    Use Solo for one town, Middle for two locations, Group for multiple people,
-    and AI for a quick nightlife prompt.
+    Use Solo for one town, Middle for two locations, Group for multiple people, and AI for a quick nightlife prompt.
   </p>
 
-  <h3>Solo Search</h3>
+  <!-- SOLO -->
+  <section id="panel-solo" class="tab-panel active-panel">
+    <h3>Solo Search</h3>
 
-  <input id="soloQuery" placeholder="City, ZIP, address, or lat,lng" />
+    <input id="soloQuery" placeholder="City, ZIP, address, or lat,lng" />
 
-  <div class="solo-panel">
-    <div class="row">
-      <div>
-        <label for="soloCrowd">Age crowd</label>
-        <select id="soloCrowd">
-          <option value="any">Any</option>
-          <option value="20s">20s</option>
-          <option value="30+">30+</option>
-          <option value="40+">40+</option>
-          <option value="50+">50+</option>
-        </select>
+    <div class="solo-panel">
+      <div class="row">
+        <div>
+          <label for="soloCrowd">Age crowd</label>
+          <select id="soloCrowd">
+            <option value="any">Any</option>
+            <option value="20s">20s</option>
+            <option value="30+">30+</option>
+            <option value="40+">40+</option>
+            <option value="50+">50+</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="soloMusic">Music</label>
+          <select id="soloMusic">
+            <option value="any">Any</option>
+            <option value="live music">Live music</option>
+            <option value="dj">DJ</option>
+            <option value="hip hop">Hip-hop</option>
+            <option value="house">House</option>
+            <option value="rock">Rock</option>
+            <option value="latin">Latin</option>
+            <option value="top 40">Top 40</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="soloVenue">Venue type</label>
+          <select id="soloVenue">
+            <option value="any">Any</option>
+            <option value="bar">Bar</option>
+            <option value="pub">Pub</option>
+            <option value="tavern">Tavern</option>
+            <option value="lounge">Lounge</option>
+            <option value="club">Club</option>
+            <option value="dive bar">Dive bar</option>
+            <option value="pool hall">Pool hall</option>
+            <option value="bar arcade">Bar arcade</option>
+            <option value="axe throwing">Axe throwing</option>
+            <option value="restaurant bar">Restaurant bar</option>
+            <option value="restaurant">Restaurant</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="soloVibe">Vibe</label>
+          <select id="soloVibe">
+            <option value="any">Any</option>
+            <option value="waterfront">Waterfront</option>
+            <option value="rooftop">Rooftop</option>
+            <option value="sports">Sports</option>
+            <option value="dancing">Dancing</option>
+            <option value="cheap drinks">Cheap drinks</option>
+          </select>
+        </div>
       </div>
 
-      <div>
-        <label for="soloMusic">Music</label>
-        <select id="soloMusic">
-          <option value="any">Any</option>
-          <option value="live music">Live music</option>
-          <option value="dj">DJ</option>
-          <option value="hip hop">Hip-hop</option>
-          <option value="house">House</option>
-          <option value="rock">Rock</option>
-          <option value="latin">Latin</option>
-          <option value="top 40">Top 40</option>
-        </select>
+      <div class="chip-row">
+        <button id="searchBtn" type="button">Search</button>
+        <button id="loadNJ" type="button">Load NJ Venues</button>
       </div>
 
-      <div>
-        <label for="soloVenue">Venue type</label>
-        <select id="soloVenue">
-          <option value="any">Any</option>
-          <option value="bar">Bar</option>
-          <option value="pub">Pub</option>
-          <option value="tavern">Tavern</option>
-          <option value="lounge">Lounge</option>
-          <option value="club">Club</option>
-          <option value="dive bar">Dive bar</option>
-          <option value="pool hall">Pool hall</option>
-          <option value="bar arcade">Bar arcade</option>
-          <option value="axe throwing">Axe throwing</option>
-          <option value="restaurant bar">Restaurant bar</option>
-          <option value="restaurant">Restaurant</option>
-        </select>
-      </div>
+      <p class="muted small">
+        Solo search stays on this page and searches the town, ZIP, address, or coordinates you entered.
+      </p>
 
-      <div>
-        <label for="soloVibe">Vibe</label>
-        <select id="soloVibe">
-          <option value="any">Any</option>
-          <option value="waterfront">Waterfront</option>
-          <option value="rooftop">Rooftop</option>
-          <option value="sports">Sports</option>
-          <option value="dancing">Dancing</option>
-          <option value="cheap drinks">Cheap drinks</option>
-        </select>
-      </div>
+      <h3>Starter towns</h3>
+      <div class="starter-row" id="starterTowns"></div>
     </div>
+  </section>
 
-    <div class="chip-row">
-      <button id="searchBtn" type="button">Search</button>
-      <button id="loadNJ" type="button">Load NJ Venues</button>
-    </div>
+  <!-- MIDDLE -->
+  <section id="panel-middle" class="tab-panel">
+    <h3>Meet in the Middle</h3>
 
-    <p class="muted small">
-      Solo search stays on this page and searches the town, ZIP, address, or coordinates you entered.
-    </p>
-  </div>
+    <input id="locA" placeholder="Location A" />
+    <input id="locB" placeholder="Location B" />
 
-  <h3>Meet in the Middle</h3>
+    <button id="middleBtn" type="button">Meet in the Middle</button>
+  </section>
 
-  <input id="locA" placeholder="Location A" />
-  <input id="locB" placeholder="Location B" />
+  <!-- GROUP -->
+  <section id="panel-group" class="tab-panel">
+    <h3>Group Coordination</h3>
 
-  <button id="middleBtn" type="button">Meet in the Middle</button>
-
-  <h3>Group Coordination</h3>
-
-  <textarea
-    id="groupList"
-    placeholder="Enter one location per line
+    <textarea
+      id="groupList"
+      placeholder="Enter one location per line
 
 Example:
 Saddle Brook, NJ 07663
@@ -288,18 +331,21 @@ Fairview, NJ 07022
 You can also use:
 137 Fleming Ave, Newark, NJ 07105
 40.7440,-74.0324"
-  ></textarea>
+    ></textarea>
 
-  <button id="groupBtn" type="button">Group Center</button>
+    <button id="groupBtn" type="button">Group Center</button>
+  </section>
 
-  <h3>Night Plan</h3>
+  <!-- AI -->
+  <section id="panel-ai" class="tab-panel">
+    <h3>Night Plan</h3>
 
-  <input id="aiPrompt" placeholder="Example: rooftop lounge with a DJ" />
+    <input id="aiPrompt" placeholder="Example: rooftop lounge with a DJ" />
 
-  <button id="aiBtn" type="button">Generate Night Plan</button>
+    <button id="aiBtn" type="button">Generate Night Plan</button>
+  </section>
 
   <h2>Results</h2>
-
   <div id="results"></div>
 
   <script src="app.js"></script>
