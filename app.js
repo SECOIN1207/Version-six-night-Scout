@@ -41,8 +41,8 @@ document.addEventListener("DOMContentLoaded", () => {
     "jersey city": "Jersey City, NJ 07302",
     "newark": "Newark, NJ 07105",
     "fairview": "Fairview, NJ 07022",
-    "saddle brook": "Saddle Brook, NJ 07663",
     "saddlebrook": "Saddle Brook, NJ 07663",
+    "saddle brook": "Saddle Brook, NJ 07663",
     "fort lee": "Fort Lee, NJ 07024",
     "montclair": "Montclair, NJ 07042",
     "asbury park": "Asbury Park, NJ 07712",
@@ -52,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "bayonne": "Bayonne, NJ 07002"
   };
 
-  let lastSearchState = null;
+  let lastMidpointState = null;
 
   function escapeHtml(str) {
     return String(str || "")
@@ -89,7 +89,6 @@ document.addEventListener("DOMContentLoaded", () => {
     let q = String(text || "").trim();
 
     q = q.replace(/\bSaddlebrook\b/gi, "Saddle Brook");
-    q = q.replace(/\bFairview\s+New\s+Jersey\s+07105\b/gi, "Fairview, NJ 07022");
     q = q.replace(/\bNewark\s+New\s+Jersey\b/gi, "Newark, NJ");
     q = q.replace(/\bBayonne\s+New\s+Jersey\b/gi, "Bayonne, NJ");
     q = q.replace(/\bHoboken\s+New\s+Jersey\b/gi, "Hoboken, NJ");
@@ -218,7 +217,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     if (!res.ok) {
-      throw new Error("Could not identify midpoint town");
+      throw new Error("Could not identify location");
     }
 
     const data = await res.json();
@@ -245,27 +244,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function classifyVenue(tags = {}) {
     const amenity = String(tags.amenity || "").toLowerCase();
-    const leisure = String(tags.leisure || "").toLowerCase();
-    const tourism = String(tags.tourism || "").toLowerCase();
     const name = String(tags.name || "").toLowerCase();
     const cuisine = String(tags.cuisine || "").toLowerCase();
-    const text = `${amenity} ${leisure} ${tourism} ${name} ${cuisine}`;
+    const tourism = String(tags.tourism || "").toLowerCase();
+    const leisure = String(tags.leisure || "").toLowerCase();
+    const text = `${amenity} ${name} ${cuisine} ${tourism} ${leisure}`;
 
     if (amenity === "nightclub") return "Club";
     if (amenity === "pub") return "Pub";
     if (amenity === "bar") return "Bar";
-    if (amenity === "biergarten") return "Beer Garden";
-    if (amenity === "casino") return "Casino";
     if (text.includes("tavern")) return "Tavern";
     if (text.includes("lounge")) return "Lounge";
     if (text.includes("dive")) return "Dive Bar";
     if (text.includes("arcade")) return "Bar Arcade";
     if (text.includes("axe")) return "Axe Throwing";
     if (text.includes("billiard") || text.includes("pool hall")) return "Pool Hall";
-    if (text.includes("concert") || text.includes("music") || text.includes("theater")) return "Music Venue";
+    if (text.includes("theater") || text.includes("music") || text.includes("concert")) return "Music Venue";
     if (amenity === "restaurant" && (text.includes("bar") || text.includes("lounge"))) return "Restaurant Bar";
     if (amenity === "restaurant") return "Restaurant";
-    if (amenity === "cafe") return "Cafe";
     return "Venue";
   }
 
@@ -279,26 +275,22 @@ document.addEventListener("DOMContentLoaded", () => {
     if (cuisine.includes("brazilian")) return "Brazilian";
     if (cuisine.includes("spanish")) return "Spanish";
     if (cuisine.includes("steak")) return "Steakhouse";
-    if (cuisine.includes("mexican")) return "Mexican";
     if (cuisine.includes("pizza")) return "Pizza";
     return cuisine.split(";")[0].split(",")[0];
   }
 
   function matchesMode(tags = {}, mode = "nightlife") {
     const amenity = String(tags.amenity || "").toLowerCase();
-    const leisure = String(tags.leisure || "").toLowerCase();
     const tourism = String(tags.tourism || "").toLowerCase();
+    const leisure = String(tags.leisure || "").toLowerCase();
     const name = String(tags.name || "").toLowerCase();
     const cuisine = String(tags.cuisine || "").toLowerCase();
-
-    const text = `${amenity} ${leisure} ${tourism} ${name} ${cuisine}`;
+    const text = `${amenity} ${tourism} ${leisure} ${name} ${cuisine}`;
 
     const nightlifeMatch =
       amenity === "bar" ||
       amenity === "pub" ||
       amenity === "nightclub" ||
-      amenity === "biergarten" ||
-      amenity === "casino" ||
       text.includes("tavern") ||
       text.includes("lounge") ||
       text.includes("dive") ||
@@ -313,7 +305,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const restaurantMatch =
       amenity === "restaurant" ||
-      amenity === "cafe" ||
       cuisine.length > 0;
 
     if (mode === "restaurants") return restaurantMatch;
@@ -344,24 +335,24 @@ document.addEventListener("DOMContentLoaded", () => {
   node["amenity"](around:${radiusMeters},${lat},${lng});
   way["amenity"](around:${radiusMeters},${lat},${lng});
   relation["amenity"](around:${radiusMeters},${lat},${lng});
-  node["leisure"](around:${radiusMeters},${lat},${lng});
-  way["leisure"](around:${radiusMeters},${lat},${lng});
-  relation["leisure"](around:${radiusMeters},${lat},${lng});
   node["tourism"](around:${radiusMeters},${lat},${lng});
   way["tourism"](around:${radiusMeters},${lat},${lng});
   relation["tourism"](around:${radiusMeters},${lat},${lng});
+  node["leisure"](around:${radiusMeters},${lat},${lng});
+  way["leisure"](around:${radiusMeters},${lat},${lng});
+  relation["leisure"](around:${radiusMeters},${lat},${lng});
 );
 out center tags;
 `;
 
-    let data = null;
+    let data;
 
     try {
       data = await fetchOverpass("https://overpass-api.de/api/interpreter", overpassQuery);
-    } catch (e1) {
+    } catch (_) {
       try {
         data = await fetchOverpass("https://overpass.kumi.systems/api/interpreter", overpassQuery);
-      } catch (e2) {
+      } catch (_) {
         return [];
       }
     }
@@ -425,7 +416,7 @@ out center tags;
         "bar arcade": ["arcade"],
         "axe throwing": ["axe"],
         "restaurant bar": ["restaurant bar", "bar", "lounge"],
-        restaurant: ["restaurant", "cafe", "pizza", "steakhouse", "italian", "sushi", "portuguese", "brazilian", "spanish"]
+        restaurant: ["restaurant", "italian", "pizza", "sushi", "portuguese", "brazilian", "spanish", "steakhouse"]
       };
 
       const needed = venueMap[filters.venue] || [filters.venue];
@@ -493,7 +484,7 @@ out center tags;
     `;
   }
 
-  function placeCardsHtml(center, midpointInfo, places) {
+  function placeCardsHtml(center, areaInfo, places) {
     const sorted = places
       .map((p) => ({
         ...p,
@@ -505,31 +496,28 @@ out center tags;
     if (!sorted.length) {
       return `
         <div class="card warning-card">
-          <p style="margin:0;"><b>Midpoint worked.</b> Venue list could not load right now, or no matching places were returned.</p>
+          <p style="margin:0;"><b>Location worked.</b> No live venues were returned right now.</p>
         </div>
       `;
     }
 
     return sorted
-      .map((p) => {
-        return `
-          <div class="card">
-            <h3 style="margin:0 0 8px;">${escapeHtml(p.name)}</h3>
-            <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(p.type)}</p>
-            <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(midpointInfo.town)}</p>
-            <p style="margin:4px 0;"><b>Distance:</b> ${p.distance.toFixed(1)} miles</p>
-            ${p.address ? `<p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(p.address)}</p>` : ""}
-            ${placeLinksHtml(p, midpointInfo.town)}
-          </div>
-        `;
-      })
+      .map((p) => `
+        <div class="card">
+          <h3 style="margin:0 0 8px;">${escapeHtml(p.name)}</h3>
+          <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(p.type)}</p>
+          <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(areaInfo.town)}</p>
+          <p style="margin:4px 0;"><b>Distance:</b> ${p.distance.toFixed(1)} miles</p>
+          ${p.address ? `<p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(p.address)}</p>` : ""}
+          ${placeLinksHtml(p, areaInfo.town)}
+        </div>
+      `)
       .join("");
   }
 
   function renderMiddleResults(mid, midpointInfo, places, geoA, geoB, mode) {
     els.results.innerHTML = `
       <h2>Meet in the Middle Results</h2>
-
       <div class="card">
         <p><b>Location A:</b> ${escapeHtml(geoA.display)}</p>
         <p><b>Location B:</b> ${escapeHtml(geoB.display)}</p>
@@ -542,12 +530,11 @@ out center tags;
         </div>
         ${modeButtonsHtml(mode)}
       </div>
-
       ${placeCardsHtml(mid, midpointInfo, places)}
     `;
 
-    lastSearchState = {
-      kind: "middle",
+    lastMidpointState = {
+      type: "middle",
       mid,
       midpointInfo,
       geoA,
@@ -558,15 +545,14 @@ out center tags;
   }
 
   function renderGroupResults(mid, midpointInfo, places, geos, mode) {
-    const lines = geos
+    const pointsHtml = geos
       .map((g, i) => `<p><b>Point ${i + 1}:</b> ${escapeHtml(g.display)}</p>`)
       .join("");
 
     els.results.innerHTML = `
       <h2>Group Center Results</h2>
-
       <div class="card">
-        ${lines}
+        ${pointsHtml}
         <p><b>Midpoint Town:</b> ${escapeHtml(midpointInfo.town)}</p>
         <p><b>ZIP:</b> ${escapeHtml(midpointInfo.zip || "Not available")}</p>
         ${midpointInfo.county ? `<p><b>County:</b> ${escapeHtml(midpointInfo.county)}</p>` : ""}
@@ -576,12 +562,11 @@ out center tags;
         </div>
         ${modeButtonsHtml(mode)}
       </div>
-
       ${placeCardsHtml(mid, midpointInfo, places)}
     `;
 
-    lastSearchState = {
-      kind: "group",
+    lastMidpointState = {
+      type: "group",
       mid,
       midpointInfo,
       geos
@@ -603,7 +588,6 @@ out center tags;
 
     els.results.innerHTML = `
       <h2>Solo Search Results</h2>
-
       <div class="card">
         <p><b>Town:</b> ${escapeHtml(areaInfo.town)}</p>
         <p><b>ZIP:</b> ${escapeHtml(areaInfo.zip || "Not available")}</p>
@@ -611,50 +595,50 @@ out center tags;
         <p><b>Area:</b> ${escapeHtml(areaInfo.address)}</p>
         <p><b>Filters:</b> Crowd: ${escapeHtml(filters.crowd)} | Music: ${escapeHtml(filters.music)} | Venue: ${escapeHtml(filters.venue)} | Vibe: ${escapeHtml(filters.vibe)}</p>
       </div>
-
       ${
         sorted.length
-          ? sorted
-              .map((p) => {
-                return `
-                  <div class="card">
-                    <h3 style="margin:0 0 8px;">${escapeHtml(p.name)}</h3>
-                    <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(p.type)}</p>
-                    <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(areaInfo.town)}</p>
-                    <p style="margin:4px 0;"><b>Distance:</b> ${p.distance.toFixed(1)} miles</p>
-                    ${p.address ? `<p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(p.address)}</p>` : ""}
-                    ${placeLinksHtml(p, areaInfo.town)}
-                  </div>
-                `;
-              })
-              .join("")
-          : `<div class="card warning-card"><p style="margin:0;">No venues matched your current filters in ${escapeHtml(areaInfo.town)}.</p></div>`
+          ? sorted.map((p) => `
+            <div class="card">
+              <h3 style="margin:0 0 8px;">${escapeHtml(p.name)}</h3>
+              <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(p.type)}</p>
+              <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(areaInfo.town)}</p>
+              <p style="margin:4px 0;"><b>Distance:</b> ${p.distance.toFixed(1)} miles</p>
+              ${p.address ? `<p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(p.address)}</p>` : ""}
+              ${placeLinksHtml(p, areaInfo.town)}
+            </div>
+          `).join("")
+          : `<div class="card warning-card"><p style="margin:0;">No venues matched your filters in ${escapeHtml(areaInfo.town)}.</p></div>`
       }
     `;
   }
 
   async function rerunMode(mode) {
-    if (!lastSearchState) return;
+    if (!lastMidpointState) return;
 
     els.results.innerHTML = `<p>Loading ${escapeHtml(mode)}...</p>`;
 
-    const places = await searchNearbyPlaces(lastSearchState.mid.lat, lastSearchState.mid.lng, mode);
+    let places = [];
+    try {
+      places = await searchNearbyPlaces(lastMidpointState.mid.lat, lastMidpointState.mid.lng, mode);
+    } catch (_) {
+      places = [];
+    }
 
-    if (lastSearchState.kind === "middle") {
+    if (lastMidpointState.type === "middle") {
       renderMiddleResults(
-        lastSearchState.mid,
-        lastSearchState.midpointInfo,
+        lastMidpointState.mid,
+        lastMidpointState.midpointInfo,
         places,
-        lastSearchState.geoA,
-        lastSearchState.geoB,
+        lastMidpointState.geoA,
+        lastMidpointState.geoB,
         mode
       );
-    } else if (lastSearchState.kind === "group") {
+    } else {
       renderGroupResults(
-        lastSearchState.mid,
-        lastSearchState.midpointInfo,
+        lastMidpointState.mid,
+        lastMidpointState.midpointInfo,
         places,
-        lastSearchState.geos,
+        lastMidpointState.geos,
         mode
       );
     }
@@ -662,34 +646,25 @@ out center tags;
 
   function wireModeButtons() {
     document.querySelectorAll(".mode-btn").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        try {
-          const mode = btn.getAttribute("data-mode");
-          await rerunMode(mode);
-        } catch (err) {
-          els.results.innerHTML = `
-            <div class="card error-card">
-              <p style="margin:0;">${escapeHtml(err.message || "Could not switch venue mode")}</p>
-            </div>
-          `;
-        }
-      });
+      btn.onclick = async () => {
+        const mode = btn.getAttribute("data-mode");
+        await rerunMode(mode);
+      };
     });
   }
 
   async function soloSearch() {
-    const q = els.soloQuery.value.trim();
-
+    const q = els.soloQuery?.value?.trim();
     if (!q) {
       alert("Enter a town, ZIP, address, or coordinates.");
       return;
     }
 
     const filters = {
-      crowd: els.soloCrowd.value || "any",
-      music: els.soloMusic.value || "any",
-      venue: els.soloVenue.value || "any",
-      vibe: els.soloVibe.value || "any"
+      crowd: els.soloCrowd?.value || "any",
+      music: els.soloMusic?.value || "any",
+      venue: els.soloVenue?.value || "any",
+      vibe: els.soloVibe?.value || "any"
     };
 
     els.results.innerHTML = `<p>Searching ${escapeHtml(q)}...</p>`;
@@ -698,11 +673,32 @@ out center tags;
       const center = await geocodeAddress(q);
       const areaInfo = await reverseGeocode(center.lat, center.lng);
 
-      const mode = filters.venue === "restaurant" ? "restaurants" : "everything";
-      const places = await searchNearbyPlaces(center.lat, center.lng, mode);
+      let mode = "everything";
+      if (filters.venue === "restaurant") mode = "restaurants";
+      if (
+        filters.venue === "bar" ||
+        filters.venue === "pub" ||
+        filters.venue === "tavern" ||
+        filters.venue === "lounge" ||
+        filters.venue === "club" ||
+        filters.venue === "dive bar" ||
+        filters.venue === "pool hall" ||
+        filters.venue === "bar arcade" ||
+        filters.venue === "axe throwing" ||
+        filters.venue === "restaurant bar"
+      ) {
+        mode = "nightlife";
+      }
+
+      let places = [];
+      try {
+        places = await searchNearbyPlaces(center.lat, center.lng, mode);
+      } catch (_) {
+        places = [];
+      }
 
       renderSoloResults(center, areaInfo, places, filters);
-      lastSearchState = null;
+      lastMidpointState = null;
     } catch (err) {
       els.results.innerHTML = `
         <div class="card error-card">
@@ -713,8 +709,8 @@ out center tags;
   }
 
   async function meetInMiddle() {
-    const a = els.locA.value.trim();
-    const b = els.locB.value.trim();
+    const a = els.locA?.value?.trim();
+    const b = els.locB?.value?.trim();
 
     if (!a || !b) {
       alert("Enter both locations.");
@@ -740,14 +736,14 @@ out center tags;
     } catch (err) {
       els.results.innerHTML = `
         <div class="card error-card">
-          <p style="margin:0;">${escapeHtml(err.message || "Midpoint failed")}</p>
+          <p style="margin:0;">${escapeHtml(err.message || "Meet in the middle failed")}</p>
         </div>
       `;
     }
   }
 
   async function groupCenter() {
-    const lines = els.groupList.value
+    const lines = (els.groupList?.value || "")
       .split(/\n+/)
       .map((x) => cleanLocationInput(x))
       .filter((x) => x.trim().length);
@@ -761,10 +757,8 @@ out center tags;
 
     try {
       const geos = [];
-
       for (const line of lines) {
-        const geo = await geocodeAddress(line);
-        geos.push(geo);
+        geos.push(await geocodeAddress(line));
       }
 
       const mid = centroid(geos);
@@ -791,14 +785,13 @@ out center tags;
     els.results.innerHTML = `
       <div class="card">
         <h3 style="margin-top:0;">Starter NJ towns</h3>
-        <p style="margin-bottom:6px;">Use Solo for one town, Middle for two places, or Group for multiple people.</p>
+        <p style="margin-bottom:6px;">Use the starter-town buttons in Solo Search, or run Middle and Group calculations.</p>
       </div>
     `;
   }
 
   function generateNightPlan() {
-    const q = els.aiPrompt.value.trim();
-
+    const q = els.aiPrompt?.value?.trim();
     if (!q) {
       alert("Enter a night plan prompt.");
       return;
@@ -808,7 +801,7 @@ out center tags;
       <div class="card">
         <h3 style="margin-top:0;">Night Plan</h3>
         <p><b>Prompt:</b> ${escapeHtml(q)}</p>
-        <p>Run Solo, Middle, or Group first, then use those live results to choose your spot.</p>
+        <p>Use Solo, Middle, or Group first. Then compare the live places returned below.</p>
       </div>
     `;
   }
@@ -818,7 +811,7 @@ out center tags;
     const panels = document.querySelectorAll(".tab-panel");
 
     tabButtons.forEach((btn) => {
-      btn.addEventListener("click", () => {
+      btn.onclick = () => {
         const tab = btn.getAttribute("data-tab");
 
         tabButtons.forEach((b) => b.classList.remove("active-tab"));
@@ -827,10 +820,8 @@ out center tags;
         btn.classList.add("active-tab");
 
         const panel = document.getElementById(`panel-${tab}`);
-        if (panel) {
-          panel.classList.add("active-panel");
-        }
-      });
+        if (panel) panel.classList.add("active-panel");
+      };
     });
   }
 
@@ -844,18 +835,18 @@ out center tags;
       btn.type = "button";
       btn.className = "starter-chip";
       btn.textContent = town.replace(", NJ", "");
-      btn.addEventListener("click", () => {
-        els.soloQuery.value = town;
-      });
+      btn.onclick = () => {
+        if (els.soloQuery) els.soloQuery.value = town;
+      };
       els.starterTowns.appendChild(btn);
     });
   }
 
-  els.searchBtn.addEventListener("click", soloSearch);
-  els.loadNJ.addEventListener("click", loadNJVenues);
-  els.middleBtn.addEventListener("click", meetInMiddle);
-  els.groupBtn.addEventListener("click", groupCenter);
-  els.aiBtn.addEventListener("click", generateNightPlan);
+  if (els.searchBtn) els.searchBtn.onclick = soloSearch;
+  if (els.loadNJ) els.loadNJ.onclick = loadNJVenues;
+  if (els.middleBtn) els.middleBtn.onclick = meetInMiddle;
+  if (els.groupBtn) els.groupBtn.onclick = groupCenter;
+  if (els.aiBtn) els.aiBtn.onclick = generateNightPlan;
 
   setupTabs();
   setupStarterTowns();
