@@ -16,24 +16,26 @@
     h1 {
       font-size: 64px;
       margin-bottom: 8px;
-      line-height: 0.95;
+      line-height: 1;
     }
 
     h2 {
       margin-top: 40px;
-      margin-bottom: 14px;
-      font-size: 34px;
+      font-size: 52px;
+      line-height: 1.05;
     }
 
     h3 {
       margin-top: 28px;
       margin-bottom: 10px;
-      font-size: 28px;
+      font-size: 30px;
+      line-height: 1.1;
     }
 
     p {
       line-height: 1.25;
       max-width: 980px;
+      font-size: 20px;
     }
 
     button {
@@ -46,12 +48,6 @@
       cursor: pointer;
       font-weight: 700;
       font-size: 18px;
-    }
-
-    button.active-tab {
-      background: #111;
-      color: #fff;
-      border-color: #111;
     }
 
     button:disabled {
@@ -71,11 +67,13 @@
       font-size: 18px;
       box-sizing: border-box;
       background: #fff;
+      color: #111;
     }
 
     textarea {
-      min-height: 170px;
+      min-height: 180px;
       resize: vertical;
+      line-height: 1.35;
     }
 
     .card {
@@ -103,10 +101,6 @@
       color: #666;
     }
 
-    .small {
-      font-size: 15px;
-    }
-
     .chip-row {
       display: flex;
       flex-wrap: wrap;
@@ -115,8 +109,7 @@
       max-width: 980px;
     }
 
-    .solo-panel,
-    .panel-shell {
+    .solo-panel {
       border: 1px solid #ddd;
       border-radius: 18px;
       padding: 18px;
@@ -132,39 +125,47 @@
       margin-top: 10px;
     }
 
-    .starter-town-btn {
-      padding: 10px 18px;
-      font-size: 17px;
-      margin: 4px;
+    .small {
+      font-size: 15px;
     }
 
-    .mode-panel {
-      display: none;
-    }
-
-    .mode-panel.active {
+    label {
       display: block;
-    }
-
-    .season-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      max-width: 980px;
-    }
-
-    .season-chip {
-      display: inline-block;
-      padding: 10px 14px;
-      border: 1px solid #ddd;
-      border-radius: 14px;
-      background: #f7f7f7;
+      margin-bottom: 6px;
       font-weight: 700;
+      font-size: 18px;
     }
 
-    .error-card {
-      border: 1px solid #e0aaaa;
-      background: #fff4f4;
+    @media (max-width: 700px) {
+      body {
+        margin: 20px;
+      }
+
+      h1 {
+        font-size: 52px;
+      }
+
+      h2 {
+        font-size: 42px;
+      }
+
+      h3 {
+        font-size: 28px;
+      }
+
+      p {
+        font-size: 18px;
+      }
+
+      button {
+        font-size: 17px;
+      }
+
+      input,
+      textarea,
+      select {
+        font-size: 17px;
+      }
     }
   </style>
 </head>
@@ -182,140 +183,123 @@
   <h2>NJ nightlife</h2>
 
   <div class="chip-row">
-    <button id="tabSolo" type="button" class="active-tab">Solo</button>
-    <button id="tabMiddle" type="button">Middle</button>
-    <button id="tabGroup" type="button">Group</button>
-    <button id="tabAI" type="button">AI</button>
+    <button type="button">Solo</button>
+    <button type="button">Middle</button>
+    <button type="button">Group</button>
+    <button type="button">AI</button>
   </div>
 
   <p class="muted">
-    Use Solo for one town, Middle for two locations, Group for multiple people, and AI for a quick nightlife prompt.
+    Use Solo for one town, Middle for two locations, Group for multiple people,
+    and AI for a quick nightlife prompt.
   </p>
 
-  <div id="soloPanel" class="mode-panel active">
-    <h3>Solo Search</h3>
+  <h3>Solo Search</h3>
 
-    <input id="soloQuery" placeholder="City, ZIP, or address" />
+  <input id="soloQuery" placeholder="City, ZIP, address, or lat,lng" />
 
-    <div class="solo-panel">
-      <div class="row">
-        <div>
-          <label for="soloCrowd">Age crowd</label>
-          <select id="soloCrowd">
-            <option value="any">Any</option>
-            <option value="20s">20s</option>
-            <option value="30+">30+</option>
-            <option value="40+">40+</option>
-            <option value="50+">50+</option>
-          </select>
-        </div>
-
-        <div>
-          <label for="soloMusic">Music</label>
-          <select id="soloMusic">
-            <option value="any">Any</option>
-            <option value="live music">Live Music</option>
-            <option value="dj">DJ</option>
-            <option value="hip hop">Hip-Hop</option>
-            <option value="house">House</option>
-            <option value="rock">Rock</option>
-            <option value="latin">Latin</option>
-            <option value="top 40">Top 40</option>
-          </select>
-        </div>
-
-        <div>
-          <label for="soloVenue">Venue type</label>
-          <select id="soloVenue">
-            <option value="any">Any</option>
-            <option value="bar">Bar</option>
-            <option value="pub">Pub</option>
-            <option value="tavern">Tavern</option>
-            <option value="lounge">Lounge</option>
-            <option value="club">Club</option>
-            <option value="dive bar">Dive Bar</option>
-            <option value="pool hall">Pool Hall</option>
-            <option value="bar arcade">Bar Arcade</option>
-            <option value="axe throwing">Axe Throwing</option>
-            <option value="restaurant bar">Restaurant Bar</option>
-            <option value="restaurant">Restaurant</option>
-            <option value="music venue">Music Venue</option>
-          </select>
-        </div>
-
-        <div>
-          <label for="soloVibe">Vibe</label>
-          <select id="soloVibe">
-            <option value="any">Any</option>
-            <option value="waterfront">Waterfront</option>
-            <option value="rooftop">Rooftop</option>
-            <option value="sports">Sports</option>
-            <option value="dancing">Dancing</option>
-            <option value="cheap drinks">Cheap Drinks</option>
-          </select>
-        </div>
+  <div class="solo-panel">
+    <div class="row">
+      <div>
+        <label for="soloCrowd">Age crowd</label>
+        <select id="soloCrowd">
+          <option value="any">Any</option>
+          <option value="20s">20s</option>
+          <option value="30+">30+</option>
+          <option value="40+">40+</option>
+          <option value="50+">50+</option>
+        </select>
       </div>
 
-      <div class="chip-row">
-        <button id="searchBtn" type="button">Search</button>
-        <button id="loadNJ" type="button">Load NJ Venues</button>
+      <div>
+        <label for="soloMusic">Music</label>
+        <select id="soloMusic">
+          <option value="any">Any</option>
+          <option value="live music">Live music</option>
+          <option value="dj">DJ</option>
+          <option value="hip hop">Hip-hop</option>
+          <option value="house">House</option>
+          <option value="rock">Rock</option>
+          <option value="latin">Latin</option>
+          <option value="top 40">Top 40</option>
+        </select>
       </div>
 
-      <p class="muted small">
-        Solo search stays on this page and searches the town or ZIP you entered.
-      </p>
+      <div>
+        <label for="soloVenue">Venue type</label>
+        <select id="soloVenue">
+          <option value="any">Any</option>
+          <option value="bar">Bar</option>
+          <option value="pub">Pub</option>
+          <option value="tavern">Tavern</option>
+          <option value="lounge">Lounge</option>
+          <option value="club">Club</option>
+          <option value="dive bar">Dive bar</option>
+          <option value="pool hall">Pool hall</option>
+          <option value="bar arcade">Bar arcade</option>
+          <option value="axe throwing">Axe throwing</option>
+          <option value="restaurant bar">Restaurant bar</option>
+          <option value="restaurant">Restaurant</option>
+        </select>
+      </div>
 
-      <h3 style="margin-top:18px;">Starter towns</h3>
-      <div id="starterTowns" class="chip-row"></div>
+      <div>
+        <label for="soloVibe">Vibe</label>
+        <select id="soloVibe">
+          <option value="any">Any</option>
+          <option value="waterfront">Waterfront</option>
+          <option value="rooftop">Rooftop</option>
+          <option value="sports">Sports</option>
+          <option value="dancing">Dancing</option>
+          <option value="cheap drinks">Cheap drinks</option>
+        </select>
+      </div>
     </div>
+
+    <div class="chip-row">
+      <button id="searchBtn" type="button">Search</button>
+      <button id="loadNJ" type="button">Load NJ Venues</button>
+    </div>
+
+    <p class="muted small">
+      Solo search stays on this page and searches the town, ZIP, address, or coordinates you entered.
+    </p>
   </div>
 
-  <div id="middlePanel" class="mode-panel">
-    <h3>Meet in the Middle</h3>
+  <h3>Meet in the Middle</h3>
 
-    <input id="locA" placeholder="Location A" />
-    <input id="locB" placeholder="Location B" />
+  <input id="locA" placeholder="Location A" />
+  <input id="locB" placeholder="Location B" />
 
-    <button id="middleBtn" type="button">Meet in the Middle</button>
-  </div>
+  <button id="middleBtn" type="button">Meet in the Middle</button>
 
-  <div id="groupPanel" class="mode-panel">
-    <h3>Group Coordination</h3>
+  <h3>Group Coordination</h3>
 
-    <textarea
-      id="groupList"
-      placeholder="Enter one location per line
+  <textarea
+    id="groupList"
+    placeholder="Enter one location per line
 
 Example:
-Saddle Brook NJ 07663
-Hoboken NJ 07030
-Newark NJ 07105
-Fairview NJ 07022"
-    ></textarea>
+Saddle Brook, NJ 07663
+Hoboken, NJ 07030
+Newark, NJ 07105
+Fairview, NJ 07022
 
-    <button id="groupBtn" type="button">Group Center</button>
-  </div>
+You can also use:
+137 Fleming Ave, Newark, NJ 07105
+40.7440,-74.0324"
+  ></textarea>
 
-  <div id="aiPanel" class="mode-panel">
-    <h3>Night Plan</h3>
+  <button id="groupBtn" type="button">Group Center</button>
 
-    <input id="aiPrompt" placeholder="Example: rooftop lounge with a DJ" />
-    <button id="aiBtn" type="button">Generate Night Plan</button>
+  <h3>Night Plan</h3>
 
-    <div class="panel-shell">
-      <h3 style="margin-top:0;">Upcoming seasonal ideas</h3>
-      <div class="season-grid">
-        <span class="season-chip">St. Patrick’s weekend</span>
-        <span class="season-chip">Cinco de Mayo</span>
-        <span class="season-chip">Summer shore weekends</span>
-        <span class="season-chip">Boardwalk events</span>
-        <span class="season-chip">Concert nights</span>
-        <span class="season-chip">Tattoo / beer festivals</span>
-      </div>
-    </div>
-  </div>
+  <input id="aiPrompt" placeholder="Example: rooftop lounge with a DJ" />
+
+  <button id="aiBtn" type="button">Generate Night Plan</button>
 
   <h2>Results</h2>
+
   <div id="results"></div>
 
   <script src="app.js"></script>
