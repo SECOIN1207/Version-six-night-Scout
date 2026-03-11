@@ -30,6 +30,36 @@ document.addEventListener("DOMContentLoaded", () => {
       .replaceAll("'", "&#39;");
   }
 
+  function normalize(text) {
+    return String(text || "")
+      .toLowerCase()
+      .replace(/,/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function extractZip(text) {
+    const match = String(text || "").match(/\b\d{5}\b/);
+    return match ? match[0] : "";
+  }
+
+  function extractTownHint(text) {
+    const cleaned = normalize(text)
+      .replace(/\bnew jersey\b/g, "")
+      .replace(/\bnj\b/g, "")
+      .replace(/\busa\b/g, "")
+      .replace(/\bunited states\b/g, "")
+      .replace(/\b\d{5}\b/g, "")
+      .trim();
+
+    if (!cleaned) return "";
+
+    const parts = cleaned.split(" ").filter(Boolean);
+    if (!parts.length) return "";
+
+    return cleaned;
+  }
+
   function milesBetween(lat1, lon1, lat2, lon2) {
     const toRad = (d) => d * Math.PI / 180;
     const R = 3958.8;
@@ -47,8 +77,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function midpoint(a, b) {
     return {
-      lat: (a.lat + b.lat) / 2,
-      lng: (a.lng + b.lng) / 2
+      lat: (a.lat + a.lat + b.lat - a.lat) / 2,
+      lng: (a.lng + a.lng + b.lng - a.lng) / 2
     };
   }
 
@@ -60,7 +90,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function geocodeAddress(address) {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`;
+    const query = `${address}, New Jersey, USA`;
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(query)}`;
 
     const res = await fetch(url, {
       headers: {
@@ -78,10 +109,58 @@ document.addEventListener("DOMContentLoaded", () => {
       throw new Error(`Address not found: ${address}`);
     }
 
+    const zipHint = extractZip(address);
+    const townHint = extractTownHint(address);
+
+    const scored = data
+      .map((item) => {
+        const addr = item.address || {};
+        const display = item.display_name || "";
+        const blob = normalize(
+          [
+            display,
+            addr.city,
+            addr.town,
+            addr.village,
+            addr.municipality,
+            addr.suburb,
+            addr.county,
+            addr.state,
+            addr.postcode
+          ].filter(Boolean).join(" ")
+        );
+
+        let score = 0;
+
+        if (blob.includes("new jersey")) score += 50;
+        if ((addr.state || "").toLowerCase() === "new jersey") score += 80;
+
+        if (zipHint && String(addr.postcode || "") === zipHint) score += 200;
+
+        if (townHint) {
+          const words = townHint.split(" ").filter(Boolean);
+          let townWordHits = 0;
+          for (const w of words) {
+            if (blob.includes(w)) townWordHits += 1;
+          }
+          score += townWordHits * 25;
+        }
+
+        if (blob.includes("road") || blob.includes("drive") || blob.includes("avenue") || blob.includes("street")) {
+          score -= 8;
+        }
+
+        return { item, score };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    const best = scored[0].item;
+
     return {
-      lat: parseFloat(data[0].lat),
-      lng: parseFloat(data[0].lon),
-      display: data[0].display_name
+      lat: parseFloat(best.lat),
+      lng: parseFloat(best.lon),
+      display: best.display_name,
+      raw: best
     };
   }
 
@@ -127,12 +206,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const amenity = (tags.amenity || "").toLowerCase();
     const leisure = (tags.leisure || "").toLowerCase();
     const tourism = (tags.tourism || "").toLowerCase();
-    const shop = (tags.shop || "").toLowerCase();
-    const office = (tags.office || "").toLowerCase();
     const name = (tags.name || "").toLowerCase();
     const cuisine = (tags.cuisine || "").toLowerCase();
-
-    const text = `${amenity} ${leisure} ${tourism} ${shop} ${office} ${name} ${cuisine}`;
+    const text = `${amenity} ${leisure} ${tourism} ${name} ${cuisine}`;
 
     if (amenity === "nightclub") return "Club";
     if (amenity === "pub") return "Pub";
@@ -155,7 +231,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const cuisine = (tags.cuisine || "").toLowerCase();
 
     if (!cuisine) return "Restaurant";
-
     if (cuisine.includes("italian")) return "Italian";
     if (cuisine.includes("sushi") || cuisine.includes("japanese")) return "Sushi / Japanese";
     if (cuisine.includes("portuguese")) return "Portuguese";
@@ -167,6 +242,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (cuisine.includes("thai")) return "Thai";
     if (cuisine.includes("indian")) return "Indian";
     if (cuisine.includes("pizza")) return "Pizza";
+
     return cuisine
       .split(";")[0]
       .split(",")[0]
@@ -348,7 +424,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (lastCenter.kind === "middle") {
             renderMiddleResults(lastCenter.mid, lastCenter.midpointInfo, places, lastA, lastB, mode);
           } else if (lastCenter.kind === "group") {
-            renderGroupResults(lastCenter.mid, lastCenter.midpointInfo, places, lastGroup, mode);
+            renderGroupResults(lastCenter.mid, lastCenter.midpointInfo, places, lastGroup, mode, lastCenter.outlierNote);
           }
         } catch (err) {
           if (els.results) {
@@ -441,7 +517,7 @@ document.addEventListener("DOMContentLoaded", () => {
     wireModeButtons();
   }
 
-  function renderGroupResults(mid, midpointInfo, places, groupGeos, mode) {
+  function renderGroupResults(mid, midpointInfo, places, groupGeos, mode, outlierNote = "") {
     if (!els.results) return;
 
     const modeLabel =
@@ -463,6 +539,11 @@ document.addEventListener("DOMContentLoaded", () => {
         <p style="margin:4px 0;"><b>ZIP:</b> ${escapeHtml(midpointInfo.zip || "Not available")}</p>
         ${midpointInfo.county ? `<p style="margin:4px 0;"><b>County:</b> ${escapeHtml(midpointInfo.county)}</p>` : ""}
         <p style="margin:4px 0;"><b>Area:</b> ${escapeHtml(midpointInfo.address)}</p>
+        ${
+          outlierNote
+            ? `<div class="card" style="border:1px solid #f0d08a;background:#fff9e8;margin-top:12px;"><p style="margin:0;"><b>Possible bad match:</b> ${escapeHtml(outlierNote)}</p></div>`
+            : ""
+        }
         <div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;">
           <a href="https://www.google.com/maps?q=${mid.lat},${mid.lng}" target="_blank" rel="noopener noreferrer">Open group midpoint in Google Maps</a>
           <a href="https://www.google.com/search?q=${encodeURIComponent(`${midpointInfo.town} NJ bars restaurants clubs lounges`) }" target="_blank" rel="noopener noreferrer">Search this town</a>
@@ -474,6 +555,33 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
 
     wireModeButtons();
+  }
+
+  function detectOutliers(points) {
+    if (points.length < 3) return { kept: points, removed: [], note: "" };
+
+    const fullCenter = centroid(points);
+
+    const withDistances = points.map((p) => ({
+      ...p,
+      centerDistance: milesBetween(p.lat, p.lng, fullCenter.lat, fullCenter.lng)
+    }));
+
+    const distances = withDistances.map((p) => p.centerDistance).sort((a, b) => a - b);
+    const median = distances[Math.floor(distances.length / 2)] || 0;
+
+    const removed = withDistances.filter((p) => p.centerDistance > Math.max(25, median * 2.2));
+    const kept = withDistances.filter((p) => !removed.includes(p));
+
+    if (!removed.length || kept.length < 2) {
+      return { kept: withDistances, removed: [], note: "" };
+    }
+
+    const note = removed
+      .map((r) => `${r.input} resolved as ${r.display}`)
+      .join(" | ");
+
+    return { kept, removed, note };
   }
 
   async function meetInMiddle() {
@@ -498,6 +606,9 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const geoA = await geocodeAddress(a);
       const geoB = await geocodeAddress(b);
+      geoA.input = a;
+      geoB.input = b;
+
       const mid = midpoint(geoA, geoB);
       const midpointInfo = await reverseGeocode(mid.lat, mid.lng);
       const places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
@@ -554,20 +665,29 @@ document.addEventListener("DOMContentLoaded", () => {
       const groupGeos = [];
       for (const line of lines) {
         const geo = await geocodeAddress(line);
+        geo.input = line;
         groupGeos.push(geo);
       }
 
-      const mid = centroid(groupGeos);
+      const outlierCheck = detectOutliers(groupGeos);
+      const cleanedPoints = outlierCheck.kept;
+
+      const mid = centroid(cleanedPoints);
       const midpointInfo = await reverseGeocode(mid.lat, mid.lng);
       const places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
 
       lastA = null;
       lastB = null;
-      lastGroup = groupGeos;
-      lastCenter = { kind: "group", mid, midpointInfo };
+      lastGroup = cleanedPoints;
+      lastCenter = {
+        kind: "group",
+        mid,
+        midpointInfo,
+        outlierNote: outlierCheck.note
+      };
       lastMode = "nightlife";
 
-      renderGroupResults(mid, midpointInfo, places, groupGeos, "nightlife");
+      renderGroupResults(mid, midpointInfo, places, cleanedPoints, "nightlife", outlierCheck.note);
     } catch (err) {
       console.error(err);
       if (els.results) {
@@ -594,7 +714,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <h2>NightScout</h2>
       <p>Use <b>Meet in the Middle</b> or <b>Group Center</b> to calculate a real midpoint town, then NightScout will show nightlife or restaurants for that area.</p>
       <div class="card" style="border:1px solid #ddd;border-radius:16px;padding:14px;margin:14px 0;background:#fafafa;">
-        <p style="margin:0;"><b>Tip:</b> Enter any two towns, addresses, or ZIP codes in New Jersey and NightScout will calculate the midpoint automatically.</p>
+        <p style="margin:0;"><b>Tip:</b> In group mode, use exact town names with ZIP codes when possible, like <b>Saddle Brook NJ 07663</b> and <b>Fairview NJ 07022</b>.</p>
       </div>
     `;
   }
