@@ -168,6 +168,30 @@
       font-size: 18px;
     }
 
+    .mode-switch {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+      margin-bottom: 4px;
+    }
+
+    .mode-switch button.active-mode {
+      background: #111;
+      color: #fff;
+      border-color: #111;
+    }
+
+    .error-card {
+      border: 1px solid #f0b4b4;
+      background: #fff3f3;
+    }
+
+    .warning-card {
+      border: 1px solid #f0d08a;
+      background: #fff9e8;
+    }
+
     @media (max-width: 700px) {
       body {
         margin: 20px;
@@ -226,7 +250,6 @@
     Use Solo for one town, Middle for two locations, Group for multiple people, and AI for a quick nightlife prompt.
   </p>
 
-  <!-- SOLO -->
   <section id="panel-solo" class="tab-panel active-panel">
     <h3>Solo Search</h3>
 
@@ -304,7 +327,6 @@
     </div>
   </section>
 
-  <!-- MIDDLE -->
   <section id="panel-middle" class="tab-panel">
     <h3>Meet in the Middle</h3>
 
@@ -314,7 +336,6 @@
     <button id="middleBtn" type="button">Meet in the Middle</button>
   </section>
 
-  <!-- GROUP -->
   <section id="panel-group" class="tab-panel">
     <h3>Group Coordination</h3>
 
@@ -336,7 +357,6 @@ You can also use:
     <button id="groupBtn" type="button">Group Center</button>
   </section>
 
-  <!-- AI -->
   <section id="panel-ai" class="tab-panel">
     <h3>Night Plan</h3>
 
