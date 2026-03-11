@@ -57,6 +57,10 @@ document.addEventListener("DOMContentLoaded", () => {
     "englewood": "Englewood, NJ 07631"
   };
 
+  const GEOCODE_CACHE = new Map();
+  const REVERSE_CACHE = new Map();
+  const PLACE_DETAIL_CACHE = new Map();
+
   let lastMidpointState = null;
 
   function escapeHtml(str) {
@@ -150,15 +154,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function geocodeAddress(address) {
     const cleaned = cleanLocationInput(address);
+    const cacheKey = `geo:${cleaned}`;
+
+    if (GEOCODE_CACHE.has(cacheKey)) {
+      return GEOCODE_CACHE.get(cacheKey);
+    }
 
     if (isLatLng(cleaned)) {
       const parsed = parseLatLng(cleaned);
-      return {
+      const result = {
         lat: parsed.lat,
         lng: parsed.lng,
         display: `${parsed.lat}, ${parsed.lng}`,
         input: address
       };
+      GEOCODE_CACHE.set(cacheKey, result);
+      return result;
     }
 
     const zipHint = extractZip(cleaned);
@@ -220,16 +231,24 @@ document.addEventListener("DOMContentLoaded", () => {
       .sort((a, b) => b.score - a.score);
 
     const best = scored[0].item;
-
-    return {
+    const result = {
       lat: parseFloat(best.lat),
       lng: parseFloat(best.lon),
       display: best.display_name,
       input: address
     };
+
+    GEOCODE_CACHE.set(cacheKey, result);
+    return result;
   }
 
   async function reverseGeocode(lat, lng) {
+    const key = `rev:${lat.toFixed(5)},${lng.toFixed(5)}`;
+
+    if (REVERSE_CACHE.has(key)) {
+      return REVERSE_CACHE.get(key);
+    }
+
     const url =
       `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${lat}&lon=${lng}`;
 
@@ -244,7 +263,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const data = await res.json();
     const addr = data.address || {};
 
-    return {
+    const result = {
       town:
         addr.city ||
         addr.town ||
@@ -259,6 +278,9 @@ document.addEventListener("DOMContentLoaded", () => {
       address: data.display_name || "",
       state: addr.state || ""
     };
+
+    REVERSE_CACHE.set(key, result);
+    return result;
   }
 
   function classifyVenue(tags = {}) {
@@ -279,10 +301,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (text.includes("axe")) return "Axe Throwing";
     if (text.includes("billiard") || text.includes("pool hall")) return "Pool Hall";
     if (text.includes("theater") || text.includes("music") || text.includes("concert")) return "Music Venue";
-    if (amenity === "restaurant" && (text.includes("bar") || text.includes("lounge"))) return "Restaurant Bar";
-    if (amenity === "restaurant") return "Restaurant";
     if (amenity === "biergarten") return "Beer Garden";
     if (amenity === "casino") return "Casino";
+    if (amenity === "restaurant") return "Restaurant";
     return "Venue";
   }
 
@@ -332,10 +353,8 @@ document.addEventListener("DOMContentLoaded", () => {
       amenity === "cafe" ||
       cuisine.length > 0;
 
+    if (mode === "nightlife") return nightlifeMatch;
     if (mode === "restaurants") return restaurantMatch;
-    if (mode === "nightlife") {
-      return nightlifeMatch || (amenity === "restaurant" && (text.includes("bar") || text.includes("lounge")));
-    }
     return nightlifeMatch || restaurantMatch;
   }
 
@@ -396,6 +415,11 @@ out center tags;
         if (!placeLat || !placeLng || !tags.name) return null;
         if (!matchesMode(tags, mode)) return null;
 
+        const phone = tags.phone || tags["contact:phone"] || "";
+        const website = tags.website || tags["contact:website"] || tags.url || "";
+        const hours = tags.opening_hours || tags["contact:opening_hours"] || "";
+        const menu = tags.menu || tags["contact:menu"] || "";
+
         return {
           name: tags.name,
           type: mode === "restaurants" ? restaurantCuisineLabel(tags) : classifyVenue(tags),
@@ -409,7 +433,17 @@ out center tags;
           ]
             .filter(Boolean)
             .join(" "),
-          tags
+          phone,
+          website,
+          hours,
+          menu,
+          tags,
+          townHint:
+            tags["addr:city"] ||
+            tags["addr:town"] ||
+            tags["addr:village"] ||
+            "",
+          zipHint: tags["addr:postcode"] || ""
         };
       })
       .filter(Boolean);
@@ -428,17 +462,64 @@ out center tags;
     return deduped;
   }
 
+  async function enrichPlacesWithReverse(places, limit = 20) {
+    const targets = places.slice(0, limit);
+
+    await Promise.all(
+      targets.map(async (place) => {
+        const key = `place:${place.lat.toFixed(5)},${place.lng.toFixed(5)}`;
+
+        if (PLACE_DETAIL_CACHE.has(key)) {
+          Object.assign(place, PLACE_DETAIL_CACHE.get(key));
+          return;
+        }
+
+        try {
+          const rev = await reverseGeocode(place.lat, place.lng);
+
+          const enriched = {
+            fullAddress: rev.address || place.address || "",
+            townResolved: rev.town || place.townHint || "",
+            zipResolved: rev.zip || place.zipHint || "",
+            countyResolved: rev.county || ""
+          };
+
+          Object.assign(place, enriched);
+          PLACE_DETAIL_CACHE.set(key, enriched);
+        } catch (_) {
+          const fallback = {
+            fullAddress: place.address || "",
+            townResolved: place.townHint || "",
+            zipResolved: place.zipHint || "",
+            countyResolved: ""
+          };
+          Object.assign(place, fallback);
+          PLACE_DETAIL_CACHE.set(key, fallback);
+        }
+      })
+    );
+
+    return places;
+  }
+
   function knownClosed(place) {
-    const hay = normalize(`${place.name} ${place.address || ""}`);
+    const hay = normalize(`${place.name} ${place.fullAddress || place.address || ""}`);
     return hay.includes("wicked wolf");
   }
 
   function sameTownOrZip(place, areaInfo) {
     const blob = normalize(
       [
+        place.fullAddress,
         place.address,
+        place.townResolved,
+        place.townHint,
+        place.zipResolved,
+        place.zipHint,
         JSON.stringify(place.tags || {})
-      ].join(" ")
+      ]
+        .filter(Boolean)
+        .join(" ")
     );
 
     const townNeedle = normalize(areaInfo.town || "");
@@ -452,7 +533,7 @@ out center tags;
 
   function matchesSoloFilters(place, filters) {
     const hay = normalize(
-      `${place.name} ${place.type} ${place.address} ${JSON.stringify(place.tags || {})}`
+      `${place.name} ${place.type} ${place.address} ${place.fullAddress || ""} ${JSON.stringify(place.tags || {})}`
     );
 
     if (filters.venue !== "any") {
@@ -466,7 +547,6 @@ out center tags;
         "pool hall": ["pool hall", "billiard"],
         "bar arcade": ["arcade"],
         "axe throwing": ["axe"],
-        "restaurant bar": ["restaurant bar", "bar", "lounge"],
         restaurant: ["restaurant", "italian", "pizza", "sushi", "portuguese", "brazilian", "spanish", "steakhouse"]
       };
 
@@ -474,7 +554,21 @@ out center tags;
       if (!needed.some((word) => hay.includes(normalize(word)))) return false;
     }
 
-    if (filters.music !== "any") return true;
+    if (filters.music !== "any") {
+      const musicMap = {
+        "live music": ["live music", "music", "concert", "theater", "band"],
+        dj: ["dj", "dance", "nightclub", "club"],
+        "hip hop": ["hip hop"],
+        house: ["house"],
+        rock: ["rock"],
+        latin: ["latin"],
+        "top 40": ["top 40"]
+      };
+
+      const needed = musicMap[filters.music] || [filters.music];
+      if (!needed.some((word) => hay.includes(normalize(word)))) return false;
+    }
+
     if (filters.vibe !== "any") {
       const vibeMap = {
         waterfront: ["waterfront", "river", "pier", "harbor", "sinatra", "boardwalk", "beach", "boulevard east", "port imperial"],
@@ -492,18 +586,25 @@ out center tags;
   }
 
   function placeLinksHtml(place, town) {
-    const queryText = `${place.name} ${place.address || town} NJ`;
+    const queryText = `${place.name} ${place.fullAddress || place.address || town} NJ`;
     const directions = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryText)}`;
     const photos = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(place.name + " " + town + " NJ")}`;
     const search = `https://www.google.com/search?q=${encodeURIComponent(place.name + " " + town + " NJ")}`;
+    const call = place.phone ? `tel:${place.phone.replace(/[^\d+]/g, "")}` : "";
+    const website = place.website || "";
+    const menu = place.menu
+      ? place.menu
+      : `https://www.google.com/search?q=${encodeURIComponent(place.name + " menu " + town + " NJ")}`;
 
-    return `
-      <div class="result-links">
-        <a href="${directions}" target="_blank" rel="noopener noreferrer">Directions</a>
-        <a href="${photos}" target="_blank" rel="noopener noreferrer">Photos</a>
-        <a href="${search}" target="_blank" rel="noopener noreferrer">Search</a>
-      </div>
-    `;
+    let html = `<div class="result-links">`;
+    if (call) html += `<a href="${call}">Call</a>`;
+    html += `<a href="${directions}" target="_blank" rel="noopener noreferrer">Directions</a>`;
+    if (website) html += `<a href="${website}" target="_blank" rel="noopener noreferrer">Website</a>`;
+    html += `<a href="${menu}" target="_blank" rel="noopener noreferrer">Menu</a>`;
+    html += `<a href="${photos}" target="_blank" rel="noopener noreferrer">Photos</a>`;
+    html += `<a href="${search}" target="_blank" rel="noopener noreferrer">Search</a>`;
+    html += `</div>`;
+    return html;
   }
 
   function modeButtonsHtml(active) {
@@ -522,7 +623,9 @@ out center tags;
   }
 
   function placeCardsHtml(center, areaInfo, places) {
-    const sorted = places
+    const usable = places.filter((p) => (p.fullAddress || p.address || "").trim().length > 0);
+
+    const sorted = usable
       .map((p) => ({
         ...p,
         distance: milesBetween(center.lat, center.lng, p.lat, p.lng)
@@ -533,23 +636,25 @@ out center tags;
     if (!sorted.length) {
       return `
         <div class="card warning-card">
-          <p style="margin:0;"><b>Location worked.</b> No live venues were returned right now.</p>
+          <p style="margin:0;"><b>Location worked.</b> No address-verified venues were returned right now.</p>
         </div>
       `;
     }
 
     return sorted
       .map((p) => {
-        const addressText = p.address || "Address not listed";
+        const addressText = p.fullAddress || p.address || "Address not listed";
+        const hoursText = p.hours || "Hours not listed";
 
         return `
           <div class="card">
             <h3 style="margin:0 0 8px;">${escapeHtml(p.name)}</h3>
             <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(p.type)}</p>
-            <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(areaInfo.town)}</p>
+            <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(p.townResolved || areaInfo.town)}</p>
             <p style="margin:4px 0;"><b>Distance:</b> ${p.distance.toFixed(1)} miles</p>
             <p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(addressText)}</p>
-            ${placeLinksHtml(p, areaInfo.town)}
+            <p style="margin:4px 0;"><b>Hours:</b> ${escapeHtml(hoursText)}</p>
+            ${placeLinksHtml(p, p.townResolved || areaInfo.town)}
           </div>
         `;
       })
@@ -620,8 +725,9 @@ out center tags;
     const localOnly = places.filter((p) => sameTownOrZip(p, areaInfo));
     const aliveOnly = localOnly.filter((p) => !knownClosed(p));
     const filtered = aliveOnly.filter((p) => matchesSoloFilters(p, filters));
+    const usable = filtered.filter((p) => (p.fullAddress || p.address || "").trim().length > 0);
 
-    const sorted = filtered
+    const sorted = usable
       .map((p) => ({
         ...p,
         distance: milesBetween(center.lat, center.lng, p.lat, p.lng)
@@ -644,13 +750,14 @@ out center tags;
             <div class="card">
               <h3 style="margin:0 0 8px;">${escapeHtml(p.name)}</h3>
               <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(p.type)}</p>
-              <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(areaInfo.town)}</p>
+              <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(p.townResolved || areaInfo.town)}</p>
               <p style="margin:4px 0;"><b>Distance:</b> ${p.distance.toFixed(1)} miles</p>
-              <p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(p.address || "Address not listed")}</p>
-              ${placeLinksHtml(p, areaInfo.town)}
+              <p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(p.fullAddress || p.address || "Address not listed")}</p>
+              <p style="margin:4px 0;"><b>Hours:</b> ${escapeHtml(p.hours || "Hours not listed")}</p>
+              ${placeLinksHtml(p, p.townResolved || areaInfo.town)}
             </div>
           `).join("")
-          : `<div class="card warning-card"><p style="margin:0;">No venues matched your filters in ${escapeHtml(areaInfo.town)}.</p></div>`
+          : `<div class="card warning-card"><p style="margin:0;">No address-verified venues matched your filters in ${escapeHtml(areaInfo.town)}.</p></div>`
       }
     `;
   }
@@ -663,6 +770,8 @@ out center tags;
     let places = [];
     try {
       places = await searchNearbyPlaces(lastMidpointState.mid.lat, lastMidpointState.mid.lng, mode);
+      await enrichPlacesWithReverse(places, 20);
+      places = places.filter((p) => !knownClosed(p));
     } catch (_) {
       places = [];
     }
@@ -728,14 +837,16 @@ out center tags;
           "dive bar",
           "pool hall",
           "bar arcade",
-          "axe throwing",
-          "restaurant bar"
+          "axe throwing"
         ].includes(filters.venue)
       ) {
         mode = "nightlife";
       }
 
-      const places = await searchNearbyPlaces(center.lat, center.lng, mode, 4200);
+      let places = await searchNearbyPlaces(center.lat, center.lng, mode, 4200);
+      await enrichPlacesWithReverse(places, 20);
+      places = places.filter((p) => !knownClosed(p));
+
       renderSoloResults(center, areaInfo, places, filters);
       lastMidpointState = null;
     } catch (err) {
@@ -767,6 +878,8 @@ out center tags;
       let places = [];
       try {
         places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
+        await enrichPlacesWithReverse(places, 20);
+        places = places.filter((p) => !knownClosed(p));
       } catch (_) {
         places = [];
       }
@@ -806,6 +919,8 @@ out center tags;
       let places = [];
       try {
         places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
+        await enrichPlacesWithReverse(places, 20);
+        places = places.filter((p) => !knownClosed(p));
       } catch (_) {
         places = [];
       }
