@@ -31,18 +31,19 @@ document.addEventListener("DOMContentLoaded", () => {
     "Montclair, NJ 07042",
     "Asbury Park, NJ 07712",
     "Point Pleasant Beach, NJ 08742",
-    "Atlantic City, NJ 08401"
+    "Atlantic City, NJ 08401",
+    "Bayonne, NJ 07002"
   ];
 
   const TOWN_FIXES = {
-    "saddlebrook": "Saddle Brook, NJ 07663",
-    "saddle brook": "Saddle Brook, NJ 07663",
     "hoboken": "Hoboken, NJ 07030",
-    "newark": "Newark, NJ 07105",
-    "fairview": "Fairview, NJ 07022",
-    "fort lee": "Fort Lee, NJ 07024",
     "weehawken": "Weehawken, NJ 07087",
     "jersey city": "Jersey City, NJ 07302",
+    "newark": "Newark, NJ 07105",
+    "fairview": "Fairview, NJ 07022",
+    "saddle brook": "Saddle Brook, NJ 07663",
+    "saddlebrook": "Saddle Brook, NJ 07663",
+    "fort lee": "Fort Lee, NJ 07024",
     "montclair": "Montclair, NJ 07042",
     "asbury park": "Asbury Park, NJ 07712",
     "point pleasant": "Point Pleasant Beach, NJ 08742",
@@ -50,6 +51,8 @@ document.addEventListener("DOMContentLoaded", () => {
     "atlantic city": "Atlantic City, NJ 08401",
     "bayonne": "Bayonne, NJ 07002"
   };
+
+  let lastSearchState = null;
 
   function escapeHtml(str) {
     return String(str || "")
@@ -63,10 +66,14 @@ document.addEventListener("DOMContentLoaded", () => {
   function normalize(text) {
     return String(text || "")
       .toLowerCase()
-      .replace(/,/g, " ")
-      .replace(/\./g, " ")
+      .replace(/[.,]/g, " ")
       .replace(/\s+/g, " ")
       .trim();
+  }
+
+  function extractZip(text) {
+    const m = String(text || "").match(/\b\d{5}\b/);
+    return m ? m[0] : "";
   }
 
   function isLatLng(text) {
@@ -76,11 +83,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function parseLatLng(text) {
     const [lat, lng] = String(text).split(",").map((x) => parseFloat(x.trim()));
     return { lat, lng };
-  }
-
-  function extractZip(text) {
-    const m = String(text || "").match(/\b\d{5}\b/);
-    return m ? m[0] : "";
   }
 
   function cleanLocationInput(text) {
@@ -95,9 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
     q = q.replace(/\s+/g, " ").trim();
 
     const norm = normalize(q);
-    if (TOWN_FIXES[norm]) {
-      return TOWN_FIXES[norm];
-    }
+    if (TOWN_FIXES[norm]) return TOWN_FIXES[norm];
 
     return q;
   }
@@ -105,7 +105,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function milesBetween(lat1, lon1, lat2, lon2) {
     const R = 3958.8;
     const toRad = (d) => (d * Math.PI) / 180;
-
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
 
@@ -146,16 +145,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const zipHint = extractZip(cleaned);
-    const query = cleaned.includes("NJ") || cleaned.includes("New Jersey")
-      ? cleaned
-      : `${cleaned}, New Jersey, USA`;
+    const query =
+      cleaned.includes("NJ") || cleaned.includes("New Jersey")
+        ? cleaned
+        : `${cleaned}, New Jersey, USA`;
 
     const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8&q=${encodeURIComponent(query)}`;
 
     const res = await fetch(url, {
-      headers: {
-        Accept: "application/json"
-      }
+      headers: { Accept: "application/json" }
     });
 
     if (!res.ok) {
@@ -191,13 +189,12 @@ document.addEventListener("DOMContentLoaded", () => {
         let score = 0;
 
         if (blob.includes("new jersey")) score += 200;
-        if (zipHint && blob.includes(zipHint)) score += 300;
+        if (item.address?.state === "New Jersey") score += 200;
+        if (zipHint && blob.includes(zipHint)) score += 400;
 
         wanted.split(" ").forEach((part) => {
           if (part && blob.includes(part)) score += 20;
         });
-
-        if (item.address?.state === "New Jersey") score += 120;
 
         return { item, score };
       })
@@ -217,9 +214,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${lat}&lon=${lng}`;
 
     const res = await fetch(url, {
-      headers: {
-        Accept: "application/json"
-      }
+      headers: { Accept: "application/json" }
     });
 
     if (!res.ok) {
@@ -274,6 +269,21 @@ document.addEventListener("DOMContentLoaded", () => {
     return "Venue";
   }
 
+  function restaurantCuisineLabel(tags = {}) {
+    const cuisine = String(tags.cuisine || "").toLowerCase();
+
+    if (!cuisine) return "Restaurant";
+    if (cuisine.includes("italian")) return "Italian";
+    if (cuisine.includes("sushi") || cuisine.includes("japanese")) return "Sushi / Japanese";
+    if (cuisine.includes("portuguese")) return "Portuguese";
+    if (cuisine.includes("brazilian")) return "Brazilian";
+    if (cuisine.includes("spanish")) return "Spanish";
+    if (cuisine.includes("steak")) return "Steakhouse";
+    if (cuisine.includes("mexican")) return "Mexican";
+    if (cuisine.includes("pizza")) return "Pizza";
+    return cuisine.split(";")[0].split(",")[0];
+  }
+
   function matchesMode(tags = {}, mode = "nightlife") {
     const amenity = String(tags.amenity || "").toLowerCase();
     const leisure = String(tags.leisure || "").toLowerCase();
@@ -311,21 +321,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return nightlifeMatch || restaurantMatch;
   }
 
-  function restaurantCuisineLabel(tags = {}) {
-    const cuisine = String(tags.cuisine || "").toLowerCase();
-
-    if (!cuisine) return "Restaurant";
-    if (cuisine.includes("italian")) return "Italian";
-    if (cuisine.includes("sushi") || cuisine.includes("japanese")) return "Sushi / Japanese";
-    if (cuisine.includes("portuguese")) return "Portuguese";
-    if (cuisine.includes("brazilian")) return "Brazilian";
-    if (cuisine.includes("spanish")) return "Spanish";
-    if (cuisine.includes("steak")) return "Steakhouse";
-    if (cuisine.includes("mexican")) return "Mexican";
-    if (cuisine.includes("pizza")) return "Pizza";
-    return cuisine.split(";")[0].split(",")[0];
-  }
-
   async function fetchOverpass(url, query) {
     const res = await fetch(url, {
       method: "POST",
@@ -336,7 +331,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     if (!res.ok) {
-      throw new Error("Overpass failed");
+      throw new Error("Venue server failed");
     }
 
     return res.json();
@@ -363,8 +358,12 @@ out center tags;
 
     try {
       data = await fetchOverpass("https://overpass-api.de/api/interpreter", overpassQuery);
-    } catch (_) {
-      data = await fetchOverpass("https://overpass.kumi.systems/api/interpreter", overpassQuery);
+    } catch (e1) {
+      try {
+        data = await fetchOverpass("https://overpass.kumi.systems/api/interpreter", overpassQuery);
+      } catch (e2) {
+        return [];
+      }
     }
 
     const elements = Array.isArray(data.elements) ? data.elements : [];
@@ -378,14 +377,9 @@ out center tags;
         if (!placeLat || !placeLng || !tags.name) return null;
         if (!matchesMode(tags, mode)) return null;
 
-        const kind =
-          mode === "restaurants"
-            ? restaurantCuisineLabel(tags)
-            : classifyVenue(tags);
-
         return {
           name: tags.name,
-          type: kind,
+          type: mode === "restaurants" ? restaurantCuisineLabel(tags) : classifyVenue(tags),
           lat: placeLat,
           lng: placeLng,
           address: [
@@ -400,8 +394,8 @@ out center tags;
       })
       .filter(Boolean);
 
-    const deduped = [];
     const seen = new Set();
+    const deduped = [];
 
     for (const item of mapped) {
       const key = `${normalize(item.name)}|${normalize(item.address)}`;
@@ -435,8 +429,7 @@ out center tags;
       };
 
       const needed = venueMap[filters.venue] || [filters.venue];
-      const ok = needed.some((word) => hay.includes(normalize(word)));
-      if (!ok) return false;
+      if (!needed.some((word) => hay.includes(normalize(word)))) return false;
     }
 
     if (filters.music !== "any") {
@@ -451,22 +444,20 @@ out center tags;
       };
 
       const needed = musicMap[filters.music] || [filters.music];
-      const ok = needed.some((word) => hay.includes(normalize(word)));
-      if (!ok) return false;
+      if (!needed.some((word) => hay.includes(normalize(word)))) return false;
     }
 
     if (filters.vibe !== "any") {
       const vibeMap = {
-        waterfront: ["waterfront", "river", "pier", "harbor", "sinatra", "boulevard east", "boardwalk", "beach"],
+        waterfront: ["waterfront", "river", "pier", "harbor", "sinatra", "boardwalk", "beach", "boulevard east"],
         rooftop: ["rooftop", "roof"],
         sports: ["sports"],
         dancing: ["dance", "dancing", "dj", "club"],
-        "cheap drinks": ["dive", "pub", "tavern", "cheap"]
+        "cheap drinks": ["cheap", "dive", "pub", "tavern"]
       };
 
       const needed = vibeMap[filters.vibe] || [filters.vibe];
-      const ok = needed.some((word) => hay.includes(normalize(word)));
-      if (!ok) return false;
+      if (!needed.some((word) => hay.includes(normalize(word)))) return false;
     }
 
     return true;
@@ -488,21 +479,21 @@ out center tags;
   }
 
   function modeButtonsHtml(active) {
-    const mk = (mode, label) => {
+    const makeBtn = (mode, label) => {
       const activeClass = active === mode ? "active-mode" : "";
       return `<button type="button" class="mode-btn ${activeClass}" data-mode="${mode}">${label}</button>`;
     };
 
     return `
       <div class="mode-switch">
-        ${mk("nightlife", "Nightlife")}
-        ${mk("restaurants", "Restaurants")}
-        ${mk("everything", "Everything")}
+        ${makeBtn("nightlife", "Nightlife")}
+        ${makeBtn("restaurants", "Restaurants")}
+        ${makeBtn("everything", "Everything")}
       </div>
     `;
   }
 
-  function placeCardsHtml(center, midpointInfo, places, mode) {
+  function placeCardsHtml(center, midpointInfo, places) {
     const sorted = places
       .map((p) => ({
         ...p,
@@ -513,8 +504,8 @@ out center tags;
 
     if (!sorted.length) {
       return `
-        <div class="card">
-          <p style="margin:0;">No results found in ${escapeHtml(midpointInfo.town)}.</p>
+        <div class="card warning-card">
+          <p style="margin:0;"><b>Midpoint worked.</b> Venue list could not load right now, or no matching places were returned.</p>
         </div>
       `;
     }
@@ -535,8 +526,6 @@ out center tags;
       .join("");
   }
 
-  let lastSearchState = null;
-
   function renderMiddleResults(mid, midpointInfo, places, geoA, geoB, mode) {
     els.results.innerHTML = `
       <h2>Meet in the Middle Results</h2>
@@ -554,7 +543,7 @@ out center tags;
         ${modeButtonsHtml(mode)}
       </div>
 
-      ${placeCardsHtml(mid, midpointInfo, places, mode)}
+      ${placeCardsHtml(mid, midpointInfo, places)}
     `;
 
     lastSearchState = {
@@ -569,7 +558,7 @@ out center tags;
   }
 
   function renderGroupResults(mid, midpointInfo, places, geos, mode) {
-    const list = geos
+    const lines = geos
       .map((g, i) => `<p><b>Point ${i + 1}:</b> ${escapeHtml(g.display)}</p>`)
       .join("");
 
@@ -577,7 +566,7 @@ out center tags;
       <h2>Group Center Results</h2>
 
       <div class="card">
-        ${list}
+        ${lines}
         <p><b>Midpoint Town:</b> ${escapeHtml(midpointInfo.town)}</p>
         <p><b>ZIP:</b> ${escapeHtml(midpointInfo.zip || "Not available")}</p>
         ${midpointInfo.county ? `<p><b>County:</b> ${escapeHtml(midpointInfo.county)}</p>` : ""}
@@ -588,7 +577,7 @@ out center tags;
         ${modeButtonsHtml(mode)}
       </div>
 
-      ${placeCardsHtml(mid, midpointInfo, places, mode)}
+      ${placeCardsHtml(mid, midpointInfo, places)}
     `;
 
     lastSearchState = {
@@ -639,7 +628,7 @@ out center tags;
                 `;
               })
               .join("")
-          : `<div class="card"><p style="margin:0;">No venues matched your current filters in ${escapeHtml(areaInfo.town)}.</p></div>`
+          : `<div class="card warning-card"><p style="margin:0;">No venues matched your current filters in ${escapeHtml(areaInfo.town)}.</p></div>`
       }
     `;
   }
@@ -674,13 +663,13 @@ out center tags;
   function wireModeButtons() {
     document.querySelectorAll(".mode-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        const mode = btn.getAttribute("data-mode");
         try {
+          const mode = btn.getAttribute("data-mode");
           await rerunMode(mode);
         } catch (err) {
           els.results.innerHTML = `
             <div class="card error-card">
-              <p style="margin:0;">${escapeHtml(err.message || "Could not switch modes")}</p>
+              <p style="margin:0;">${escapeHtml(err.message || "Could not switch venue mode")}</p>
             </div>
           `;
         }
@@ -739,7 +728,13 @@ out center tags;
       const geoB = await geocodeAddress(b);
       const mid = midpoint(geoA, geoB);
       const midpointInfo = await reverseGeocode(mid.lat, mid.lng);
-      const places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
+
+      let places = [];
+      try {
+        places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
+      } catch (_) {
+        places = [];
+      }
 
       renderMiddleResults(mid, midpointInfo, places, geoA, geoB, "nightlife");
     } catch (err) {
@@ -774,7 +769,13 @@ out center tags;
 
       const mid = centroid(geos);
       const midpointInfo = await reverseGeocode(mid.lat, mid.lng);
-      const places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
+
+      let places = [];
+      try {
+        places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
+      } catch (_) {
+        places = [];
+      }
 
       renderGroupResults(mid, midpointInfo, places, geos, "nightlife");
     } catch (err) {
@@ -790,7 +791,7 @@ out center tags;
     els.results.innerHTML = `
       <div class="card">
         <h3 style="margin-top:0;">Starter NJ towns</h3>
-        <p style="margin-bottom:6px;">Tap one of the starter towns below or run a Solo, Middle, or Group search.</p>
+        <p style="margin-bottom:6px;">Use Solo for one town, Middle for two places, or Group for multiple people.</p>
       </div>
     `;
   }
@@ -807,7 +808,7 @@ out center tags;
       <div class="card">
         <h3 style="margin-top:0;">Night Plan</h3>
         <p><b>Prompt:</b> ${escapeHtml(q)}</p>
-        <p>Use Solo Search, Meet in the Middle, or Group Center first, then refine from the live results below.</p>
+        <p>Run Solo, Middle, or Group first, then use those live results to choose your spot.</p>
       </div>
     `;
   }
@@ -859,4 +860,3 @@ out center tags;
   setupTabs();
   setupStarterTowns();
 });
-  
