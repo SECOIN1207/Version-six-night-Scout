@@ -248,64 +248,82 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function reverseGeocode(lat, lng) {
-    const key = `rev:${lat.toFixed(5)},${lng.toFixed(5)}`;
-    if (REVERSE_CACHE.has(key)) return REVERSE_CACHE.get(key);
+  const key = `rev:${lat.toFixed(5)},${lng.toFixed(5)}`;
+  if (REVERSE_CACHE.has(key)) return REVERSE_CACHE.get(key);
 
-    const url =
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${lat}&lon=${lng}`;
+  const url =
+    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${lat}&lon=${lng}`;
 
-    const res = await fetch(url, {
-      headers: { Accept: "application/json" }
-    });
+  const res = await fetch(url, {
+    headers: { Accept: "application/json" }
+  });
 
-    if (!res.ok) throw new Error("Could not identify location");
+  if (!res.ok) throw new Error("Could not identify location");
 
-    const data = await res.json();
-    const addr = data.address || {};
+  const data = await res.json();
+  const addr = data.address || {};
 
-    const result = {
-      town:
-        addr.city ||
-        addr.town ||
-        addr.village ||
-        addr.municipality ||
-        addr.suburb ||
-        addr.hamlet ||
-        addr.county ||
-        "Unknown",
-      zip: addr.postcode || "",
-      county: addr.county || "",
-      address: data.display_name || ""
-    };
+  const town =
+    addr.city ||
+    addr.town ||
+    addr.village ||
+    addr.municipality ||
+    addr.suburb ||
+    addr.hamlet ||
+    "Unknown";
 
-    REVERSE_CACHE.set(key, result);
-    return result;
-  }
+  const zip = addr.postcode || "";
+  const county = addr.county || "";
+  const state = addr.state || "New Jersey";
+
+  const cleanArea = [town, county, state, zip].filter(Boolean).join(", ");
+
+  const result = {
+    town,
+    zip,
+    county,
+    address: cleanArea
+  };
+
+  REVERSE_CACHE.set(key, result);
+  return result;
+}
 
   function classifyVenue(tags = {}) {
-    const amenity = String(tags.amenity || "").toLowerCase();
-    const cuisine = String(tags.cuisine || "").toLowerCase();
-    const tourism = String(tags.tourism || "").toLowerCase();
-    const leisure = String(tags.leisure || "").toLowerCase();
-    const name = String(tags.name || "").toLowerCase();
-    const text = `${amenity} ${cuisine} ${tourism} ${leisure} ${name}`;
+  const amenity = String(tags.amenity || "").toLowerCase();
+  const name = String(tags.name || "").toLowerCase();
+  const cuisine = String(tags.cuisine || "").toLowerCase();
+  const tourism = String(tags.tourism || "").toLowerCase();
+  const leisure = String(tags.leisure || "").toLowerCase();
+  const sport = String(tags.sport || "").toLowerCase();
+  const text = `${amenity} ${name} ${cuisine} ${tourism} ${leisure} ${sport}`;
 
-    if (amenity === "nightclub") return "Club";
-    if (amenity === "pub") return "Pub";
-    if (amenity === "bar") return "Bar";
-    if (text.includes("tavern")) return "Tavern";
-    if (text.includes("lounge")) return "Lounge";
-    if (text.includes("dive")) return "Dive Bar";
-    if (text.includes("arcade")) return "Bar Arcade";
-    if (text.includes("axe")) return "Axe Throwing";
-    if (text.includes("billiard") || text.includes("pool hall")) return "Pool Hall";
-    if (text.includes("theater") || text.includes("music") || text.includes("concert")) return "Music Venue";
-    if (amenity === "restaurant" && (text.includes("bar") || text.includes("lounge"))) return "Restaurant Bar";
-    if (amenity === "restaurant") return "Restaurant";
-    if (amenity === "biergarten") return "Beer Garden";
-    if (amenity === "casino") return "Casino";
-    return "Venue";
-  }
+  if (text.includes("casino") && (text.includes("club") || text.includes("nightclub"))) return "Casino Nightclub";
+  if (amenity === "nightclub") return "Nightclub";
+  if (text.includes("sports bar") || sport || text.includes("sports")) return "Sports Bar";
+  if (amenity === "pub") return "Pub";
+  if (amenity === "bar") return "Bar";
+  if (text.includes("tavern")) return "Tavern";
+  if (text.includes("lounge")) return "Lounge";
+  if (text.includes("dive")) return "Dive Bar";
+  if (text.includes("arcade")) return "Bar Arcade";
+  if (text.includes("axe")) return "Axe Throwing";
+  if (text.includes("billiard") || text.includes("pool hall")) return "Pool Hall";
+  if (
+    text.includes("concert") ||
+    text.includes("music venue") ||
+    text.includes("performing arts") ||
+    text.includes("theater") ||
+    tourism === "attraction"
+  ) return "Concert Venue";
+  if (text.includes("beach bar") || text.includes("boardwalk") || text.includes("beach")) return "Beach Bar";
+  if (amenity === "restaurant" && (text.includes("bar") || text.includes("lounge"))) return "Restaurant Bar";
+  if (amenity === "restaurant") return "Restaurant";
+  if (amenity === "biergarten") return "Beer Garden";
+  if (amenity === "casino") return "Casino";
+  return "Venue";
+}
+ 
 
   function restaurantCuisineLabel(tags = {}) {
     const cuisine = String(tags.cuisine || "").toLowerCase();
