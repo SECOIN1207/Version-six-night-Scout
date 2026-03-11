@@ -1,305 +1,333 @@
-const results = document.getElementById("results")
+document.addEventListener("DOMContentLoaded", () => {
 
-/* -----------------------
-VENUE DATABASE
------------------------ */
+const $ = (id)=>document.getElementById(id)
 
-const venues = [
-
-{
-name:"Ainsworth Hoboken",
-town:"Hoboken",
-zip:"07030",
-type:"restaurant bar",
-vibe:"waterfront",
-music:"dj",
-crowd:"30+",
-address:"310 Sinatra Drive Hoboken NJ",
-photo:"https://images.unsplash.com/photo-1555992336-03a23c6b5c6a"
-},
-
-{
-name:"Blue Eyes Restaurant",
-town:"Hoboken",
-zip:"07030",
-type:"restaurant bar",
-vibe:"waterfront",
-music:"any",
-crowd:"30+",
-address:"525 Sinatra Drive Hoboken NJ",
-photo:"https://images.unsplash.com/photo-1544148103-0773bf10d330"
-},
-
-{
-name:"Lola's",
-town:"Hoboken",
-zip:"07030",
-type:"restaurant bar",
-vibe:"waterfront",
-music:"dj",
-crowd:"30+",
-address:"102 Sinatra Drive Hoboken NJ",
-photo:"https://images.unsplash.com/photo-1517248135467-4c7edcad34c4"
-},
-
-{
-name:"W Hotel Lounge",
-town:"Hoboken",
-zip:"07030",
-type:"lounge",
-vibe:"waterfront",
-music:"dj",
-crowd:"30+",
-address:"225 River Street Hoboken NJ",
-photo:"https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5"
-},
-
-{
-name:"8th Street Tavern",
-town:"Hoboken",
-zip:"07030",
-type:"tavern",
-vibe:"sports",
-music:"any",
-crowd:"30+",
-address:"800 Washington Street Hoboken NJ",
-photo:"https://images.unsplash.com/photo-1514361892635-e95572c7c98e"
-},
-
-{
-name:"Son Cubano",
-town:"Weehawken",
-zip:"07086",
-type:"restaurant bar",
-vibe:"waterfront",
-music:"latin",
-crowd:"30+",
-address:"40 Riverwalk Place West New York NJ",
-photo:"https://images.unsplash.com/photo-1528605248644-14dd04022da1"
-},
-
-{
-name:"Bar 115",
-town:"Weehawken",
-zip:"07086",
-type:"club",
-vibe:"dancing",
-music:"dj",
-crowd:"30+",
-address:"115 River Road Edgewater NJ",
-photo:"https://images.unsplash.com/photo-1506744038136-46273834b3fb"
-},
-
-{
-name:"Waterside Restaurant",
-town:"North Bergen",
-zip:"07047",
-type:"restaurant bar",
-vibe:"waterfront",
-music:"any",
-crowd:"40+",
-address:"7800 River Road North Bergen NJ",
-photo:"https://images.unsplash.com/photo-1504674900247-0877df9cc836"
-},
-
-{
-name:"Ventanas",
-town:"Fort Lee",
-zip:"07024",
-type:"club",
-vibe:"rooftop",
-music:"dj",
-crowd:"30+",
-address:"200 Park Avenue Fort Lee NJ",
-photo:"https://images.unsplash.com/photo-1500530855697-b586d89ba3ee"
+const els={
+soloQuery:$("soloQuery"),
+soloCrowd:$("soloCrowd"),
+soloMusic:$("soloMusic"),
+soloVenue:$("soloVenue"),
+soloVibe:$("soloVibe"),
+locA:$("locA"),
+locB:$("locB"),
+groupList:$("groupList"),
+aiPrompt:$("aiPrompt"),
+results:$("results"),
+searchBtn:$("searchBtn"),
+loadNJ:$("loadNJ"),
+middleBtn:$("middleBtn"),
+groupBtn:$("groupBtn"),
+aiBtn:$("aiBtn")
 }
+
+/* ---------- helpers ---------- */
+
+function escapeHtml(str){
+return String(str||"")
+.replaceAll("&","&amp;")
+.replaceAll("<","&lt;")
+.replaceAll(">","&gt;")
+.replaceAll('"',"&quot;")
+}
+
+function normalize(t){
+return String(t||"").toLowerCase().trim()
+}
+
+function milesBetween(lat1,lon1,lat2,lon2){
+const R=3958.8
+const dLat=(lat2-lat1)*Math.PI/180
+const dLon=(lon2-lon1)*Math.PI/180
+
+const a=
+Math.sin(dLat/2)**2+
+Math.cos(lat1*Math.PI/180)*
+Math.cos(lat2*Math.PI/180)*
+Math.sin(dLon/2)**2
+
+return 2*R*Math.asin(Math.sqrt(a))
+}
+
+function midpoint(a,b){
+return{
+lat:(a.lat+b.lat)/2,
+lng:(a.lng+b.lng)/2
+}
+}
+
+function centroid(points){
+return{
+lat:points.reduce((s,p)=>s+p.lat,0)/points.length,
+lng:points.reduce((s,p)=>s+p.lng,0)/points.length
+}
+}
+
+/* ---------- town coordinates ---------- */
+
+const towns={
+"hoboken":{lat:40.7433,lng:-74.0288,zip:"07030"},
+"weehawken":{lat:40.7695,lng:-74.0204,zip:"07086"},
+"jersey city":{lat:40.7178,lng:-74.0431,zip:"07302"},
+"newark":{lat:40.7357,lng:-74.1724,zip:"07105"},
+"fairview":{lat:40.8126,lng:-73.9990,zip:"07022"},
+"saddle brook":{lat:40.8995,lng:-74.0921,zip:"07663"},
+"fort lee":{lat:40.8509,lng:-73.9701,zip:"07024"},
+"asbury park":{lat:40.2204,lng:-74.0121,zip:"07712"},
+"point pleasant":{lat:40.0912,lng:-74.0479,zip:"08742"},
+"atlantic city":{lat:39.3643,lng:-74.4229,zip:"08401"}
+}
+
+/* ---------- venue database ---------- */
+
+const venues=[
+
+{name:"Ainsworth Hoboken",town:"Hoboken",lat:40.7397,lng:-74.0267,type:"restaurant bar",music:"dj",vibe:"waterfront",crowd:"30+",address:"310 Sinatra Dr Hoboken NJ"},
+{name:"Blue Eyes Restaurant",town:"Hoboken",lat:40.7445,lng:-74.0257,type:"restaurant",music:"any",vibe:"waterfront",crowd:"30+",address:"525 Sinatra Dr Hoboken NJ"},
+{name:"Halifax",town:"Hoboken",lat:40.7391,lng:-74.0283,type:"restaurant bar",music:"dj",vibe:"waterfront",crowd:"30+",address:"225 River St Hoboken NJ"},
+{name:"Grand Vin",town:"Hoboken",lat:40.7486,lng:-74.0324,type:"lounge",music:"live music",vibe:"cheap drinks",crowd:"30+",address:"500 Grand St Hoboken NJ"},
+{name:"Texas Arizona",town:"Hoboken",lat:40.7379,lng:-74.0295,type:"bar",music:"dj",vibe:"dancing",crowd:"20s",address:"76 River St Hoboken NJ"},
+
+{name:"Son Cubano",town:"Weehawken",lat:40.7785,lng:-74.0078,type:"restaurant bar",music:"latin",vibe:"waterfront",crowd:"30+",address:"40 Riverwalk Pl Weehawken NJ"},
+{name:"Blu on the Hudson",town:"Weehawken",lat:40.7718,lng:-74.0153,type:"restaurant bar",music:"dj",vibe:"waterfront",crowd:"30+",address:"1200 Harbor Blvd Weehawken NJ"},
+
+{name:"Hudson & Co",town:"Jersey City",lat:40.7174,lng:-74.0353,type:"restaurant bar",music:"dj",vibe:"waterfront",crowd:"30+",address:"3 2nd St Jersey City NJ"},
+{name:"Cellar 335",town:"Jersey City",lat:40.7219,lng:-74.0464,type:"lounge",music:"dj",vibe:"dancing",crowd:"30+",address:"335 Newark Ave Jersey City NJ"},
+
+{name:"McGovern's Tavern",town:"Newark",lat:40.7369,lng:-74.1706,type:"tavern",music:"live music",vibe:"cheap drinks",crowd:"30+",address:"58 New St Newark NJ"},
+{name:"Adega Grill",town:"Newark",lat:40.7282,lng:-74.1528,type:"restaurant bar",music:"latin",vibe:"dancing",crowd:"30+",address:"130 Ferry St Newark NJ"},
+
+{name:"Ventanas",town:"Fort Lee",lat:40.8516,lng:-73.9735,type:"club",music:"dj",vibe:"rooftop",crowd:"30+",address:"200 Park Ave Fort Lee NJ"},
+
+{name:"Stone Pony",town:"Asbury Park",lat:40.2208,lng:-73.9989,type:"club",music:"live music",vibe:"waterfront",crowd:"20s",address:"913 Ocean Ave Asbury Park NJ"},
+{name:"Watermark",town:"Asbury Park",lat:40.2197,lng:-73.9982,type:"lounge",music:"dj",vibe:"waterfront",crowd:"30+",address:"800 Ocean Ave Asbury Park NJ"},
+
+{name:"Jenkinsons",town:"Point Pleasant",lat:40.0942,lng:-74.0362,type:"club",music:"dj",vibe:"waterfront",crowd:"20s",address:"300 Ocean Ave Point Pleasant NJ"},
+{name:"Martells Tiki Bar",town:"Point Pleasant",lat:40.0947,lng:-74.0358,type:"bar",music:"live music",vibe:"waterfront",crowd:"30+",address:"308 Boardwalk Point Pleasant NJ"},
+
+{name:"HQ2 Nightclub",town:"Atlantic City",lat:39.3567,lng:-74.4283,type:"club",music:"dj",vibe:"rooftop",crowd:"20s",address:"500 Boardwalk Atlantic City NJ"}
 
 ]
 
-/* -----------------------
-HELPERS
------------------------ */
+/* ---------- render venue ---------- */
 
-function mapsLink(address){
-return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
-}
+function venueCard(v,distance){
 
-function googleSearch(name, town){
-return `https://www.google.com/search?q=${encodeURIComponent(name+" "+town)}`
-}
-
-function renderVenue(v){
+const map=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(v.address)}`
+const photos=`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(v.name)}`
+const search=`https://www.google.com/search?q=${encodeURIComponent(v.name+" "+v.town)}`
 
 return `
-
 <div class="card">
-
-<img src="${v.photo}" style="width:100%;border-radius:14px;margin-bottom:10px">
-
-<h3>${v.name}</h3>
-
+<h3>${escapeHtml(v.name)}</h3>
 <p>
-Type: ${v.type}<br>
-Town: ${v.town}<br>
-Address: ${v.address}
+<b>Type:</b> ${v.type}<br>
+<b>Town:</b> ${v.town}<br>
+<b>Distance:</b> ${distance.toFixed(1)} miles
 </p>
 
 <div class="result-links">
-
-<a href="${mapsLink(v.address)}" target="_blank">Directions</a>
-
-<a href="${googleSearch(v.name,v.town)}" target="_blank">Photos</a>
-
+<a href="${map}" target="_blank">Directions</a>
+<a href="${photos}" target="_blank">Photos</a>
+<a href="${search}" target="_blank">Search</a>
 </div>
-
 </div>
-
 `
 }
 
-/* -----------------------
-SOLO SEARCH
------------------------ */
+/* ---------- geocode town ---------- */
 
-document.getElementById("searchBtn").onclick = () => {
+function geocode(text){
 
-const q = document.getElementById("soloQuery").value.toLowerCase()
+const t=normalize(text)
 
-const crowd = document.getElementById("soloCrowd").value
-const music = document.getElementById("soloMusic").value
-const venue = document.getElementById("soloVenue").value
-const vibe = document.getElementById("soloVibe").value
+for(const k in towns){
 
-let matches = venues.filter(v =>
+if(t.includes(k)){
+return{
+lat:towns[k].lat,
+lng:towns[k].lng,
+display:k
+}
+}
 
-(v.town.toLowerCase().includes(q) || v.zip.includes(q))
+}
 
-&& (crowd==="any" || v.crowd===crowd)
+throw new Error("Town not found")
+}
 
-&& (music==="any" || v.music===music)
+/* ---------- solo search ---------- */
 
-&& (venue==="any" || v.type===venue)
+function soloSearch(){
 
-&& (vibe==="any" || v.vibe===vibe)
+const q=els.soloQuery.value
 
-)
-
-if(matches.length===0){
-
-results.innerHTML = `
-<div class="card">
-No venues matched your filters.
-</div>
-`
-
+if(!q){
+alert("Enter town or ZIP")
 return
 }
 
-results.innerHTML = `
-<h2>Solo Search Results</h2>
-${matches.map(renderVenue).join("")}
+let geo
+
+try{
+geo=geocode(q)
+}catch(e){
+els.results.innerHTML=`<div class="card">Location not found</div>`
+return
+}
+
+const results=venues
+.map(v=>{
+return{
+...v,
+distance:milesBetween(geo.lat,geo.lng,v.lat,v.lng)
+}
+})
+.filter(v=>v.distance<15)
+.sort((a,b)=>a.distance-b.distance)
+.slice(0,15)
+
+els.results.innerHTML=`
+<h2>Results near ${geo.display}</h2>
+${results.map(v=>venueCard(v,v.distance)).join("")}
 `
 
 }
 
-/* -----------------------
-GROUP CENTER
------------------------ */
+/* ---------- midpoint ---------- */
 
-document.getElementById("groupBtn").onclick = ()=>{
+function meetMiddle(){
 
-results.innerHTML = `
+const a=els.locA.value
+const b=els.locB.value
 
-<div class="card">
+if(!a||!b){
+alert("Enter both towns")
+return
+}
 
-<h3>Group Center Calculated</h3>
+try{
 
-Recommended nightlife towns near midpoint:
+const geoA=geocode(a)
+const geoB=geocode(b)
 
-<ul>
+const mid=midpoint(geoA,geoB)
 
-<li>Hoboken</li>
-<li>Weehawken</li>
-<li>Jersey City</li>
-<li>Edgewater</li>
+const results=venues
+.map(v=>{
+return{
+...v,
+distance:milesBetween(mid.lat,mid.lng,v.lat,v.lng)
+}
+})
+.sort((a,b)=>a.distance-b.distance)
+.slice(0,12)
 
-</ul>
-
-</div>
-
+els.results.innerHTML=`
+<h2>Meet in the Middle</h2>
+${results.map(v=>venueCard(v,v.distance)).join("")}
 `
 
+}catch(e){
+
+els.results.innerHTML=`<div class="card">Could not calculate midpoint</div>`
+
 }
 
-/* -----------------------
-MEET IN THE MIDDLE
------------------------ */
+}
 
-document.getElementById("middleBtn").onclick = ()=>{
+/* ---------- group ---------- */
 
-results.innerHTML = `
+function groupCenter(){
 
-<div class="card">
+const lines=els.groupList.value.split("\n").map(l=>l.trim()).filter(Boolean)
 
-<h3>Midpoint Result</h3>
+if(lines.length<2){
+alert("Enter at least 2 towns")
+return
+}
 
-East Rutherford NJ<br>
-Great nearby nightlife areas:
+try{
 
-<ul>
+const geos=lines.map(geocode)
 
-<li>Hoboken</li>
-<li>Jersey City</li>
-<li>Edgewater</li>
+const mid=centroid(geos)
 
-</ul>
+const results=venues
+.map(v=>{
+return{
+...v,
+distance:milesBetween(mid.lat,mid.lng,v.lat,v.lng)
+}
+})
+.sort((a,b)=>a.distance-b.distance)
+.slice(0,12)
 
-</div>
-
+els.results.innerHTML=`
+<h2>Group Center</h2>
+${results.map(v=>venueCard(v,v.distance)).join("")}
 `
 
-}
+}catch(e){
 
-/* -----------------------
-AI NIGHT PLAN
------------------------ */
-
-document.getElementById("aiBtn").onclick = ()=>{
-
-const prompt = document.getElementById("aiPrompt").value.toLowerCase()
-
-let suggestions = []
-
-if(prompt.includes("beach") || prompt.includes("water")){
-
-suggestions = venues.filter(v=>v.vibe==="waterfront")
+els.results.innerHTML=`<div class="card">Group calculation failed</div>`
 
 }
 
-else if(prompt.includes("dj") || prompt.includes("club")){
-
-suggestions = venues.filter(v=>v.music==="dj")
-
 }
 
-else{
+/* ---------- AI night plan ---------- */
 
-suggestions = venues.slice(0,4)
+function aiPlan(){
 
-}
+const prompt=normalize(els.aiPrompt.value)
 
-results.innerHTML = `
+let filtered=[...venues]
 
+if(prompt.includes("water"))
+filtered=filtered.filter(v=>v.vibe==="waterfront")
+
+if(prompt.includes("dj"))
+filtered=filtered.filter(v=>v.music==="dj")
+
+if(prompt.includes("latin"))
+filtered=filtered.filter(v=>v.music==="latin")
+
+if(prompt.includes("cheap"))
+filtered=filtered.filter(v=>v.vibe==="cheap drinks")
+
+if(prompt.includes("rooftop"))
+filtered=filtered.filter(v=>v.vibe==="rooftop")
+
+filtered=filtered.slice(0,10)
+
+els.results.innerHTML=`
 <h2>Night Plan</h2>
-
-<div class="card">
-
-Prompt: ${prompt}
-
-</div>
-
-${suggestions.map(renderVenue).join("")}
-
+${filtered.map(v=>venueCard(v,0)).join("")}
 `
 
 }
+
+/* ---------- load ---------- */
+
+function loadNJ(){
+
+els.results.innerHTML=`
+<div class="card">
+<b>NightScout</b><br>
+Use Solo, Middle, Group or AI to find nightlife.
+</div>
+`
+
+}
+
+/* ---------- events ---------- */
+
+els.searchBtn.addEventListener("click",soloSearch)
+els.middleBtn.addEventListener("click",meetMiddle)
+els.groupBtn.addEventListener("click",groupCenter)
+els.aiBtn.addEventListener("click",aiPlan)
+els.loadNJ.addEventListener("click",loadNJ)
+
+loadNJ()
+
+})
