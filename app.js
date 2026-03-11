@@ -239,22 +239,6 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
-  async function fetchOverpass(url, query) {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain;charset=UTF-8"
-      },
-      body: query
-    });
-
-    if (!res.ok) {
-      throw new Error("Venue server failed");
-    }
-
-    return res.json();
-  }
-
   function classifyVenue(tags = {}) {
     const amenity = String(tags.amenity || "").toLowerCase();
     const name = String(tags.name || "").toLowerCase();
@@ -327,6 +311,22 @@ document.addEventListener("DOMContentLoaded", () => {
     return nightlifeMatch || restaurantMatch;
   }
 
+  async function fetchOverpass(url, query) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=UTF-8"
+      },
+      body: query
+    });
+
+    if (!res.ok) {
+      throw new Error("Venue server failed");
+    }
+
+    return res.json();
+  }
+
   async function searchNearbyPlaces(lat, lng, mode = "nightlife", radiusMeters = 3500) {
     const overpassQuery = `
 [out:json][timeout:25];
@@ -397,9 +397,64 @@ out center tags;
     return deduped;
   }
 
+  async function enrichSoloPlaces(center, areaInfo, places) {
+    const preSorted = places
+      .map((p) => ({
+        ...p,
+        distance: milesBetween(center.lat, center.lng, p.lat, p.lng)
+      }))
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 25);
+
+    const enriched = [];
+
+    for (const place of preSorted) {
+      try {
+        const actual = await reverseGeocode(place.lat, place.lng);
+        enriched.push({
+          ...place,
+          actualTown: actual.town,
+          actualZip: actual.zip,
+          actualCounty: actual.county,
+          actualAddress: actual.address || place.address || ""
+        });
+      } catch (_) {
+        enriched.push({
+          ...place,
+          actualTown: "",
+          actualZip: "",
+          actualCounty: "",
+          actualAddress: place.address || ""
+        });
+      }
+    }
+
+    const wantedTown = normalize(areaInfo.town);
+    const wantedZip = normalize(areaInfo.zip);
+
+    let filtered = enriched.filter((p) => {
+      const pTown = normalize(p.actualTown);
+      const pZip = normalize(p.actualZip);
+
+      if (wantedZip && pZip && pZip === wantedZip) return true;
+      if (wantedTown && pTown && pTown === wantedTown) return true;
+
+      return p.distance <= 1.8;
+    });
+
+    filtered = filtered.filter((p) => {
+      const text = normalize(`${p.name} ${p.actualAddress} ${p.actualTown}`);
+      if (text.includes("new york")) return false;
+      if (text.includes("manhattan")) return false;
+      return true;
+    });
+
+    return filtered;
+  }
+
   function matchesSoloFilters(place, filters) {
     const hay = normalize(
-      `${place.name} ${place.type} ${place.address} ${JSON.stringify(place.tags || {})}`
+      `${place.name} ${place.type} ${place.actualAddress || place.address} ${place.actualTown || ""} ${JSON.stringify(place.tags || {})}`
     );
 
     if (filters.venue !== "any") {
@@ -453,7 +508,7 @@ out center tags;
   }
 
   function placeLinksHtml(place, town) {
-    const q = `${place.name} ${place.address || town} NJ`;
+    const q = `${place.name} ${place.actualAddress || place.address || town} NJ`;
     const directions = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
     const photos = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(place.name + " " + town + " NJ")}`;
     const search = `https://www.google.com/search?q=${encodeURIComponent(place.name + " " + town + " NJ")}`;
@@ -489,10 +544,14 @@ out center tags;
         <div class="card">
           <h3 style="margin:0 0 8px;">${escapeHtml(p.name)}</h3>
           <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(p.type)}</p>
-          <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(areaInfo.town)}</p>
+          <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(p.actualTown || areaInfo.town)}</p>
           <p style="margin:4px 0;"><b>Distance:</b> ${p.distance.toFixed(1)} miles</p>
-          ${p.address ? `<p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(p.address)}</p>` : ""}
-          ${placeLinksHtml(p, areaInfo.town)}
+          ${
+            p.actualAddress || p.address
+              ? `<p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(p.actualAddress || p.address)}</p>`
+              : ""
+          }
+          ${placeLinksHtml(p, p.actualTown || areaInfo.town)}
         </div>
       `)
       .join("");
@@ -537,8 +596,9 @@ out center tags;
     `;
   }
 
-  function renderSoloResults(center, areaInfo, places, filters) {
-    const filtered = places.filter((p) => matchesSoloFilters(p, filters));
+  async function renderSoloResults(center, areaInfo, places, filters) {
+    const enriched = await enrichSoloPlaces(center, areaInfo, places);
+    const filtered = enriched.filter((p) => matchesSoloFilters(p, filters));
 
     const sorted = filtered
       .map((p) => ({
@@ -563,10 +623,14 @@ out center tags;
               <div class="card">
                 <h3 style="margin:0 0 8px;">${escapeHtml(p.name)}</h3>
                 <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(p.type)}</p>
-                <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(areaInfo.town)}</p>
+                <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(p.actualTown || areaInfo.town)}</p>
                 <p style="margin:4px 0;"><b>Distance:</b> ${p.distance.toFixed(1)} miles</p>
-                ${p.address ? `<p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(p.address)}</p>` : ""}
-                ${placeLinksHtml(p, areaInfo.town)}
+                ${
+                  p.actualAddress || p.address
+                    ? `<p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(p.actualAddress || p.address)}</p>`
+                    : ""
+                }
+                ${placeLinksHtml(p, p.actualTown || areaInfo.town)}
               </div>
             `).join("")
           : `<div class="card warning-card"><p style="margin:0;">No venues matched your filters in ${escapeHtml(areaInfo.town)}.</p></div>`
@@ -614,7 +678,7 @@ out center tags;
       }
 
       const places = await searchNearbyPlaces(center.lat, center.lng, mode);
-      renderSoloResults(center, areaInfo, places, filters);
+      await renderSoloResults(center, areaInfo, places, filters);
     } catch (err) {
       els.results.innerHTML = `
         <div class="card error-card">
@@ -689,7 +753,7 @@ out center tags;
     els.results.innerHTML = `
       <div class="card">
         <h3 style="margin-top:0;">Starter NJ towns</h3>
-        <p style="margin-bottom:6px;">Use Solo for one town, Middle for two places, or Group for multiple locations.</p>
+        <p style="margin-bottom:6px;">Use the starter-town buttons in Solo Search, or run Middle and Group calculations.</p>
       </div>
     `;
   }
@@ -705,7 +769,7 @@ out center tags;
       <div class="card">
         <h3 style="margin-top:0;">Night Plan</h3>
         <p><b>Prompt:</b> ${escapeHtml(q)}</p>
-        <p>Use Solo, Middle, or Group first, then compare the returned places.</p>
+        <p>Use Solo, Middle, or Group first. Then compare the live places returned below.</p>
       </div>
     `;
   }
