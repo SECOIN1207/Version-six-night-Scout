@@ -52,8 +52,6 @@ document.addEventListener("DOMContentLoaded", () => {
     "bayonne": "Bayonne, NJ 07002"
   };
 
-  let lastMidpointState = null;
-
   function escapeHtml(str) {
     return String(str || "")
       .replace(/&/g, "&amp;")
@@ -186,7 +184,6 @@ document.addEventListener("DOMContentLoaded", () => {
         );
 
         let score = 0;
-
         if (blob.includes("new jersey")) score += 200;
         if (item.address?.state === "New Jersey") score += 200;
         if (zipHint && blob.includes(zipHint)) score += 400;
@@ -240,6 +237,22 @@ document.addEventListener("DOMContentLoaded", () => {
       address: data.display_name || "",
       state: addr.state || ""
     };
+  }
+
+  async function fetchOverpass(url, query) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=UTF-8"
+      },
+      body: query
+    });
+
+    if (!res.ok) {
+      throw new Error("Venue server failed");
+    }
+
+    return res.json();
   }
 
   function classifyVenue(tags = {}) {
@@ -308,24 +321,10 @@ document.addEventListener("DOMContentLoaded", () => {
       cuisine.length > 0;
 
     if (mode === "restaurants") return restaurantMatch;
-    if (mode === "nightlife") return nightlifeMatch || (amenity === "restaurant" && (text.includes("bar") || text.includes("lounge")));
-    return nightlifeMatch || restaurantMatch;
-  }
-
-  async function fetchOverpass(url, query) {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain;charset=UTF-8"
-      },
-      body: query
-    });
-
-    if (!res.ok) {
-      throw new Error("Venue server failed");
+    if (mode === "nightlife") {
+      return nightlifeMatch || (amenity === "restaurant" && (text.includes("bar") || text.includes("lounge")));
     }
-
-    return res.json();
+    return nightlifeMatch || restaurantMatch;
   }
 
   async function searchNearbyPlaces(lat, lng, mode = "nightlife", radiusMeters = 3500) {
@@ -346,7 +345,6 @@ out center tags;
 `;
 
     let data;
-
     try {
       data = await fetchOverpass("https://overpass-api.de/api/interpreter", overpassQuery);
     } catch (_) {
@@ -469,22 +467,7 @@ out center tags;
     `;
   }
 
-  function modeButtonsHtml(active) {
-    const makeBtn = (mode, label) => {
-      const activeClass = active === mode ? "active-mode" : "";
-      return `<button type="button" class="mode-btn ${activeClass}" data-mode="${mode}">${label}</button>`;
-    };
-
-    return `
-      <div class="mode-switch">
-        ${makeBtn("nightlife", "Nightlife")}
-        ${makeBtn("restaurants", "Restaurants")}
-        ${makeBtn("everything", "Everything")}
-      </div>
-    `;
-  }
-
-  function placeCardsHtml(center, areaInfo, places) {
+  function renderPlaces(center, areaInfo, places) {
     const sorted = places
       .map((p) => ({
         ...p,
@@ -515,7 +498,7 @@ out center tags;
       .join("");
   }
 
-  function renderMiddleResults(mid, midpointInfo, places, geoA, geoB, mode) {
+  function renderMiddleResults(mid, midpointInfo, places, geoA, geoB) {
     els.results.innerHTML = `
       <h2>Meet in the Middle Results</h2>
       <div class="card">
@@ -528,23 +511,12 @@ out center tags;
         <div class="result-links">
           <a href="https://www.google.com/maps?q=${mid.lat},${mid.lng}" target="_blank" rel="noopener noreferrer">Open midpoint in Google Maps</a>
         </div>
-        ${modeButtonsHtml(mode)}
       </div>
-      ${placeCardsHtml(mid, midpointInfo, places)}
+      ${renderPlaces(mid, midpointInfo, places)}
     `;
-
-    lastMidpointState = {
-      type: "middle",
-      mid,
-      midpointInfo,
-      geoA,
-      geoB
-    };
-
-    wireModeButtons();
   }
 
-  function renderGroupResults(mid, midpointInfo, places, geos, mode) {
+  function renderGroupResults(mid, midpointInfo, places, geos) {
     const pointsHtml = geos
       .map((g, i) => `<p><b>Point ${i + 1}:</b> ${escapeHtml(g.display)}</p>`)
       .join("");
@@ -560,19 +532,9 @@ out center tags;
         <div class="result-links">
           <a href="https://www.google.com/maps?q=${mid.lat},${mid.lng}" target="_blank" rel="noopener noreferrer">Open group midpoint in Google Maps</a>
         </div>
-        ${modeButtonsHtml(mode)}
       </div>
-      ${placeCardsHtml(mid, midpointInfo, places)}
+      ${renderPlaces(mid, midpointInfo, places)}
     `;
-
-    lastMidpointState = {
-      type: "group",
-      mid,
-      midpointInfo,
-      geos
-    };
-
-    wireModeButtons();
   }
 
   function renderSoloResults(center, areaInfo, places, filters) {
@@ -598,59 +560,18 @@ out center tags;
       ${
         sorted.length
           ? sorted.map((p) => `
-            <div class="card">
-              <h3 style="margin:0 0 8px;">${escapeHtml(p.name)}</h3>
-              <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(p.type)}</p>
-              <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(areaInfo.town)}</p>
-              <p style="margin:4px 0;"><b>Distance:</b> ${p.distance.toFixed(1)} miles</p>
-              ${p.address ? `<p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(p.address)}</p>` : ""}
-              ${placeLinksHtml(p, areaInfo.town)}
-            </div>
-          `).join("")
+              <div class="card">
+                <h3 style="margin:0 0 8px;">${escapeHtml(p.name)}</h3>
+                <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(p.type)}</p>
+                <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(areaInfo.town)}</p>
+                <p style="margin:4px 0;"><b>Distance:</b> ${p.distance.toFixed(1)} miles</p>
+                ${p.address ? `<p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(p.address)}</p>` : ""}
+                ${placeLinksHtml(p, areaInfo.town)}
+              </div>
+            `).join("")
           : `<div class="card warning-card"><p style="margin:0;">No venues matched your filters in ${escapeHtml(areaInfo.town)}.</p></div>`
       }
     `;
-  }
-
-  async function rerunMode(mode) {
-    if (!lastMidpointState) return;
-
-    els.results.innerHTML = `<p>Loading ${escapeHtml(mode)}...</p>`;
-
-    let places = [];
-    try {
-      places = await searchNearbyPlaces(lastMidpointState.mid.lat, lastMidpointState.mid.lng, mode);
-    } catch (_) {
-      places = [];
-    }
-
-    if (lastMidpointState.type === "middle") {
-      renderMiddleResults(
-        lastMidpointState.mid,
-        lastMidpointState.midpointInfo,
-        places,
-        lastMidpointState.geoA,
-        lastMidpointState.geoB,
-        mode
-      );
-    } else {
-      renderGroupResults(
-        lastMidpointState.mid,
-        lastMidpointState.midpointInfo,
-        places,
-        lastMidpointState.geos,
-        mode
-      );
-    }
-  }
-
-  function wireModeButtons() {
-    document.querySelectorAll(".mode-btn").forEach((btn) => {
-      btn.onclick = async () => {
-        const mode = btn.getAttribute("data-mode");
-        await rerunMode(mode);
-      };
-    });
   }
 
   async function soloSearch() {
@@ -676,29 +597,24 @@ out center tags;
       let mode = "everything";
       if (filters.venue === "restaurant") mode = "restaurants";
       if (
-        filters.venue === "bar" ||
-        filters.venue === "pub" ||
-        filters.venue === "tavern" ||
-        filters.venue === "lounge" ||
-        filters.venue === "club" ||
-        filters.venue === "dive bar" ||
-        filters.venue === "pool hall" ||
-        filters.venue === "bar arcade" ||
-        filters.venue === "axe throwing" ||
-        filters.venue === "restaurant bar"
+        [
+          "bar",
+          "pub",
+          "tavern",
+          "lounge",
+          "club",
+          "dive bar",
+          "pool hall",
+          "bar arcade",
+          "axe throwing",
+          "restaurant bar"
+        ].includes(filters.venue)
       ) {
         mode = "nightlife";
       }
 
-      let places = [];
-      try {
-        places = await searchNearbyPlaces(center.lat, center.lng, mode);
-      } catch (_) {
-        places = [];
-      }
-
+      const places = await searchNearbyPlaces(center.lat, center.lng, mode);
       renderSoloResults(center, areaInfo, places, filters);
-      lastMidpointState = null;
     } catch (err) {
       els.results.innerHTML = `
         <div class="card error-card">
@@ -724,15 +640,9 @@ out center tags;
       const geoB = await geocodeAddress(b);
       const mid = midpoint(geoA, geoB);
       const midpointInfo = await reverseGeocode(mid.lat, mid.lng);
+      const places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
 
-      let places = [];
-      try {
-        places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
-      } catch (_) {
-        places = [];
-      }
-
-      renderMiddleResults(mid, midpointInfo, places, geoA, geoB, "nightlife");
+      renderMiddleResults(mid, midpointInfo, places, geoA, geoB);
     } catch (err) {
       els.results.innerHTML = `
         <div class="card error-card">
@@ -763,15 +673,9 @@ out center tags;
 
       const mid = centroid(geos);
       const midpointInfo = await reverseGeocode(mid.lat, mid.lng);
+      const places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
 
-      let places = [];
-      try {
-        places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
-      } catch (_) {
-        places = [];
-      }
-
-      renderGroupResults(mid, midpointInfo, places, geos, "nightlife");
+      renderGroupResults(mid, midpointInfo, places, geos);
     } catch (err) {
       els.results.innerHTML = `
         <div class="card error-card">
@@ -785,7 +689,7 @@ out center tags;
     els.results.innerHTML = `
       <div class="card">
         <h3 style="margin-top:0;">Starter NJ towns</h3>
-        <p style="margin-bottom:6px;">Use the starter-town buttons in Solo Search, or run Middle and Group calculations.</p>
+        <p style="margin-bottom:6px;">Use Solo for one town, Middle for two places, or Group for multiple locations.</p>
       </div>
     `;
   }
@@ -801,7 +705,7 @@ out center tags;
       <div class="card">
         <h3 style="margin-top:0;">Night Plan</h3>
         <p><b>Prompt:</b> ${escapeHtml(q)}</p>
-        <p>Use Solo, Middle, or Group first. Then compare the live places returned below.</p>
+        <p>Use Solo, Middle, or Group first, then compare the returned places.</p>
       </div>
     `;
   }
@@ -811,7 +715,7 @@ out center tags;
     const panels = document.querySelectorAll(".tab-panel");
 
     tabButtons.forEach((btn) => {
-      btn.onclick = () => {
+      btn.addEventListener("click", () => {
         const tab = btn.getAttribute("data-tab");
 
         tabButtons.forEach((b) => b.classList.remove("active-tab"));
@@ -821,7 +725,7 @@ out center tags;
 
         const panel = document.getElementById(`panel-${tab}`);
         if (panel) panel.classList.add("active-panel");
-      };
+      });
     });
   }
 
@@ -835,18 +739,18 @@ out center tags;
       btn.type = "button";
       btn.className = "starter-chip";
       btn.textContent = town.replace(", NJ", "");
-      btn.onclick = () => {
+      btn.addEventListener("click", () => {
         if (els.soloQuery) els.soloQuery.value = town;
-      };
+      });
       els.starterTowns.appendChild(btn);
     });
   }
 
-  if (els.searchBtn) els.searchBtn.onclick = soloSearch;
-  if (els.loadNJ) els.loadNJ.onclick = loadNJVenues;
-  if (els.middleBtn) els.middleBtn.onclick = meetInMiddle;
-  if (els.groupBtn) els.groupBtn.onclick = groupCenter;
-  if (els.aiBtn) els.aiBtn.onclick = generateNightPlan;
+  if (els.searchBtn) els.searchBtn.addEventListener("click", soloSearch);
+  if (els.loadNJ) els.loadNJ.addEventListener("click", loadNJVenues);
+  if (els.middleBtn) els.middleBtn.addEventListener("click", meetInMiddle);
+  if (els.groupBtn) els.groupBtn.addEventListener("click", groupCenter);
+  if (els.aiBtn) els.aiBtn.addEventListener("click", generateNightPlan);
 
   setupTabs();
   setupStarterTowns();
