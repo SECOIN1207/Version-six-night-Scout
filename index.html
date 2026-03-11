@@ -1,194 +1,261 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NightScout</title>
 
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Georgia, serif;
+      margin: 40px;
+      color: #111;
+      background: #fff;
+    }
 
-<title>NightScout</title>
+    h1 {
+      font-size: 64px;
+      margin-bottom: 8px;
+    }
 
-<style>
+    h2 {
+      margin-top: 40px;
+    }
 
-body{
-font-family: Georgia, serif;
-margin:40px;
-color:#111;
-background:white;
-}
+    h3 {
+      margin-top: 28px;
+      margin-bottom: 8px;
+      font-size: 28px;
+    }
 
-h1{
-font-size:64px;
-margin-bottom:8px;
-}
+    p {
+      line-height: 1.25;
+      max-width: 980px;
+    }
 
-h2{
-margin-top:40px;
-}
+    button {
+      padding: 12px 24px;
+      margin: 6px;
+      border-radius: 18px;
+      border: 2px solid #ccc;
+      background: #eee;
+      color: #1473d7;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 18px;
+    }
 
-button{
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
 
-padding:12px 24px;
-margin:6px;
-border-radius:18px;
-border:2px solid #ccc;
-background:#eee;
-color:#1473d7;
-cursor:pointer;
-font-weight:700;
+    input,
+    textarea,
+    select {
+      display: block;
+      width: min(900px, 100%);
+      padding: 14px;
+      margin: 12px 0;
+      border-radius: 14px;
+      border: 2px solid #ccc;
+      font-size: 18px;
+      box-sizing: border-box;
+      background: #fff;
+    }
 
-}
+    textarea {
+      min-height: 160px;
+      resize: vertical;
+    }
 
-input, textarea{
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 18px;
+      padding: 16px;
+      margin: 16px 0;
+      background: #fafafa;
+      max-width: 900px;
+    }
 
-display:block;
-width:min(900px,100%);
-padding:14px;
-margin:12px 0;
-border-radius:14px;
-border:2px solid #ccc;
-font-size:18px;
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      max-width: 980px;
+    }
 
-}
+    .row > div {
+      flex: 1 1 220px;
+      min-width: 220px;
+    }
 
-textarea{
-min-height:160px;
-}
+    .muted {
+      color: #666;
+    }
 
-.card{
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 8px 0 18px;
+      max-width: 980px;
+    }
 
-border:1px solid #ddd;
-border-radius:18px;
-padding:16px;
-margin:16px 0;
-background:#fafafa;
-max-width:900px;
+    .solo-panel {
+      border: 1px solid #ddd;
+      border-radius: 18px;
+      padding: 18px;
+      margin: 18px 0;
+      background: #fafafa;
+      max-width: 980px;
+    }
 
-}
+    .result-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 10px;
+    }
 
-</style>
+    .small {
+      font-size: 15px;
+    }
 
+    .error-card {
+      border: 1px solid #f0b4b4;
+      background: #fff3f3;
+    }
+
+    .warn-card {
+      border: 1px solid #f0d08a;
+      background: #fff9e8;
+    }
+  </style>
 </head>
-
-
 <body>
+  <div>Nightlife Intelligence</div>
 
-<div>Nightlife Intelligence</div>
+  <h1>NightScout</h1>
 
-<h1>NightScout</h1>
+  <p>
+    Meet in the middle. Discover bars, taverns, pubs, lounges, clubs, pool halls,
+    dive bars, bar arcades, axe throwing spots, restaurant bars, and nightlife venues across New Jersey.
+  </p>
 
-<p>
-Meet in the middle. Discover bars, taverns, pubs, lounges, clubs, pool halls,
-axe throwing bars, bar arcades and nightlife venues across New Jersey.
-</p>
+  <h2>NJ nightlife</h2>
 
+  <div class="chip-row">
+    <button type="button">Solo</button>
+    <button type="button">Middle</button>
+    <button type="button">Group</button>
+    <button type="button">AI</button>
+  </div>
 
-<h2>NJ nightlife</h2>
+  <h3>Solo Search</h3>
 
+  <input id="soloQuery" placeholder="City, ZIP, or address" />
 
-<div>
+  <div class="solo-panel">
+    <div class="row">
+      <div>
+        <label for="soloCrowd">Age crowd</label>
+        <select id="soloCrowd">
+          <option value="any">Any</option>
+          <option value="20s">20s</option>
+          <option value="30+">30+</option>
+          <option value="40+">40+</option>
+          <option value="50+">50+</option>
+        </select>
+      </div>
 
-<button>Solo</button>
-<button>Middle</button>
-<button>Group</button>
-<button>AI</button>
+      <div>
+        <label for="soloMusic">Music</label>
+        <select id="soloMusic">
+          <option value="any">Any</option>
+          <option value="live music">Live Music</option>
+          <option value="dj">DJ</option>
+          <option value="hip hop">Hip-Hop</option>
+          <option value="house">House</option>
+          <option value="rock">Rock</option>
+          <option value="latin">Latin</option>
+          <option value="top 40">Top 40</option>
+        </select>
+      </div>
 
-</div>
+      <div>
+        <label for="soloVenue">Venue type</label>
+        <select id="soloVenue">
+          <option value="any">Any</option>
+          <option value="bar">Bar</option>
+          <option value="pub">Pub</option>
+          <option value="tavern">Tavern</option>
+          <option value="lounge">Lounge</option>
+          <option value="club">Club</option>
+          <option value="dive bar">Dive Bar</option>
+          <option value="pool hall">Pool Hall</option>
+          <option value="bar arcade">Bar Arcade</option>
+          <option value="axe throwing">Axe Throwing</option>
+          <option value="restaurant bar">Restaurant Bar</option>
+          <option value="restaurant">Restaurant</option>
+        </select>
+      </div>
 
+      <div>
+        <label for="soloVibe">Vibe</label>
+        <select id="soloVibe">
+          <option value="any">Any</option>
+          <option value="waterfront">Waterfront</option>
+          <option value="rooftop">Rooftop</option>
+          <option value="sports">Sports</option>
+          <option value="dancing">Dancing</option>
+          <option value="cheap drinks">Cheap Drinks</option>
+        </select>
+      </div>
+    </div>
 
-<!-- SOLO SEARCH -->
+    <div class="chip-row">
+      <button id="searchBtn" type="button">Search</button>
+      <button id="loadNJ" type="button">Load NJ Venues</button>
+    </div>
 
-<input
-id="soloQuery"
-placeholder="City, ZIP, or address"
-/>
+    <p class="muted small">
+      Solo search stays on this page and searches the town or ZIP you entered.
+    </p>
+  </div>
 
-<div>
+  <h3>Meet in the Middle</h3>
 
-<button id="searchBtn">
-Search
-</button>
+  <input id="locA" placeholder="Location A" />
+  <input id="locB" placeholder="Location B" />
 
-<button id="loadNJ">
-Load NJ Venues
-</button>
+  <button id="middleBtn" type="button">Meet in the Middle</button>
 
-</div>
+  <h3>Group Coordination</h3>
 
-
-
-<!-- MEET IN THE MIDDLE -->
-
-<h3>Meet in the Middle</h3>
-
-<input
-id="locA"
-placeholder="Location A"
-/>
-
-<input
-id="locB"
-placeholder="Location B"
-/>
-
-<button
-id="middleBtn"
->
-Meet in the Middle
-</button>
-
-
-
-<!-- GROUP MODE -->
-
-<h3>Group Coordination</h3>
-
-<textarea
-id="groupList"
-placeholder="Enter one location per line
+  <textarea
+    id="groupList"
+    placeholder="Enter one location per line
 
 Example:
 Saddle Brook NJ 07663
 Hoboken NJ 07030
 Newark NJ 07105
 Fairview NJ 07022"
-></textarea>
+  ></textarea>
 
-<button
-id="groupBtn"
->
-Group Center
-</button>
+  <button id="groupBtn" type="button">Group Center</button>
 
+  <h3>Night Plan</h3>
 
+  <input id="aiPrompt" placeholder="Example: beach bar with DJ" />
 
-<!-- AI NIGHT PLAN -->
+  <button id="aiBtn" type="button">Generate Night Plan</button>
 
-<h3>Night Plan</h3>
+  <h2>Results</h2>
 
-<input
-id="aiPrompt"
-placeholder="Example: beach bar with DJ"
-/>
+  <div id="results"></div>
 
-<button
-id="aiBtn"
->
-Generate Night Plan
-</button>
-
-
-
-<!-- RESULTS -->
-
-<h2>Results</h2>
-
-<div id="results"></div>
-
-
-
-<script src="app.js"></script>
-
+  <script src="app.js"></script>
 </body>
-
 </html>
