@@ -1312,31 +1312,26 @@ out center tags;
   }
 
   function initializeApp() {
-   something...
-}
-    addExtraMusicOptions();
-    injectHelpText();
-    setupStarterTowns();
-    setupTabs();
-    setupActionButtons();
-    setupEnterKeys();
+  addExtraMusicOptions();
+  injectHelpText();
+  setupStarterTowns();
+  setupTopTabs();
+  setupActionButtons();
+  setupEnterKeys();
+  showPanel("solo");
 
-  
-
-    if (els.results && !els.results.innerHTML.trim()) {
-      els.results.innerHTML = `
-        <div class="card">
-          <h3 style="margin-top:0;">NightScout ready</h3>
-          <p style="margin-bottom:8px;">Search by town, ZIP, or address. Use Middle for two locations, Group for multiple people, and AI for NJ nightlife prompts.</p>
-          <p style="margin-bottom:0;">Starter towns are loaded for quick testing.</p>
-        </div>
-      `;
-    }
+  if (els.results && !els.results.innerHTML.trim()) {
+    els.results.innerHTML = `
+      <div class="card">
+        <h3 style="margin-top:0;">NightScout ready</h3>
+        <p style="margin-bottom:8px;">Search by town, ZIP, or address. Use Middle for two locations, Group for multiple people, and AI for NJ nightlife prompts.</p>
+        <p style="margin-bottom:0;">Starter towns are loaded for quick testing.</p>
+      </div>
+    `;
   }
 }
- 
-function checkLateNightWarning() {
 
+function checkLateNightWarning() {
   const now = new Date();
   const hours = now.getHours();
   const minutes = now.getMinutes();
@@ -1346,19 +1341,23 @@ function checkLateNightWarning() {
 
   if (hours === 0 && minutes >= 15 && alreadyShown !== today) {
     const warning = document.getElementById("nightWarning");
-warning.style.display = "block";
-warning.style.pointerEvents = "auto";
+    if (warning) {
+      warning.style.display = "block";
+      warning.style.pointerEvents = "auto";
+    }
     localStorage.setItem("nightWarningShown", today);
   }
-
+}
 
 function closeNightWarning() {
   const warning = document.getElementById("nightWarning");
-  warning.style.display = "none";
-  warning.style.pointerEvents = "none";
+  if (warning) {
+    warning.style.display = "none";
+    warning.style.pointerEvents = "none";
+  }
 }
 
 setInterval(checkLateNightWarning, 60000);
 
-  initializeApp();
+initializeApp();
 });
