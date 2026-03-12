@@ -1343,19 +1343,20 @@ function checkLateNightWarning() {
   const today = new Date().toDateString();
 
   if (hours === 0 && minutes >= 15 && alreadyShown !== today) {
-    document.getElementById("nightWarning").style.display = "block";
+    const warning = document.getElementById("nightWarning");
+warning.style.display = "block";
+warning.style.pointerEvents = "auto";
     localStorage.setItem("nightWarningShown", today);
   }
 
-}
 
 function closeNightWarning() {
-  document.getElementById("nightWarning").style.display = "none";
+  const warning = document.getElementById("nightWarning");
+  warning.style.display = "none";
+  warning.style.pointerEvents = "none";
 }
 
 setInterval(checkLateNightWarning, 60000);
 
-initializeApp();
-});
   initializeApp();
 });
