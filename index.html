@@ -374,7 +374,34 @@ You can also use:
 
   <h2>Results</h2>
   <div id="results"></div>
+<div id="nightWarning" style="
+display:none;
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:white;
+padding:22px;
+border-radius:12px;
+box-shadow:0 8px 30px rgba(0,0,0,0.3);
+z-index:9999;
+text-align:center;
+max-width:320px;
+font-family:Georgia, serif;
+">
 
+<h3>NightScout Check-In</h3>
+
+<p>
+No drunk calls, no drunk texts, no midnight love speeches.
+<br><br>
+Get food, drink water, and make better choices than your last tab.
+</p>
+
+<button onclick="closeNightWarning()">Got it 👍</button>
+
+</div>
+  
   <script src="app.js"></script>
 </body>
 </html>
