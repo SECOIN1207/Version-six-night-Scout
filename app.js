@@ -1312,14 +1312,16 @@ out center tags;
   }
 
   function initializeApp() {
+   something...
+}
     addExtraMusicOptions();
     injectHelpText();
     setupStarterTowns();
-    setupTopTabs();
+    setupTabs();
     setupActionButtons();
     setupEnterKeys();
 
-    showPanel("solo");
+  
 
     if (els.results && !els.results.innerHTML.trim()) {
       els.results.innerHTML = `
