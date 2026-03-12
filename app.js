@@ -1331,6 +1331,31 @@ out center tags;
       `;
     }
   }
+}
+ 
+function checkLateNightWarning() {
 
+  const now = new Date();
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+
+  const alreadyShown = localStorage.getItem("nightWarningShown");
+  const today = new Date().toDateString();
+
+  if (hours === 0 && minutes >= 15 && alreadyShown !== today) {
+    document.getElementById("nightWarning").style.display = "block";
+    localStorage.setItem("nightWarningShown", today);
+  }
+
+}
+
+function closeNightWarning() {
+  document.getElementById("nightWarning").style.display = "none";
+}
+
+setInterval(checkLateNightWarning, 60000);
+
+initializeApp();
+});
   initializeApp();
 });
