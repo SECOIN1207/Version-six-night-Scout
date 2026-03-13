@@ -248,82 +248,81 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function reverseGeocode(lat, lng) {
-  const key = `rev:${lat.toFixed(5)},${lng.toFixed(5)}`;
-  if (REVERSE_CACHE.has(key)) return REVERSE_CACHE.get(key);
+    const key = `rev:${lat.toFixed(5)},${lng.toFixed(5)}`;
+    if (REVERSE_CACHE.has(key)) return REVERSE_CACHE.get(key);
 
-  const url =
-    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${lat}&lon=${lng}`;
+    const url =
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${lat}&lon=${lng}`;
 
-  const res = await fetch(url, {
-    headers: { Accept: "application/json" }
-  });
+    const res = await fetch(url, {
+      headers: { Accept: "application/json" }
+    });
 
-  if (!res.ok) throw new Error("Could not identify location");
+    if (!res.ok) throw new Error("Could not identify location");
 
-  const data = await res.json();
-  const addr = data.address || {};
+    const data = await res.json();
+    const addr = data.address || {};
 
-  const town =
-    addr.city ||
-    addr.town ||
-    addr.village ||
-    addr.municipality ||
-    addr.suburb ||
-    addr.hamlet ||
-    "Unknown";
+    const town =
+      addr.city ||
+      addr.town ||
+      addr.village ||
+      addr.municipality ||
+      addr.suburb ||
+      addr.hamlet ||
+      "Unknown";
 
-  const zip = addr.postcode || "";
-  const county = addr.county || "";
-  const state = addr.state || "New Jersey";
+    const zip = addr.postcode || "";
+    const county = addr.county || "";
+    const state = addr.state || "New Jersey";
 
-  const cleanArea = [town, county, state, zip].filter(Boolean).join(", ");
+    const cleanArea = [town, county, state, zip].filter(Boolean).join(", ");
 
-  const result = {
-    town,
-    zip,
-    county,
-    address: cleanArea
-  };
+    const result = {
+      town,
+      zip,
+      county,
+      address: cleanArea
+    };
 
-  REVERSE_CACHE.set(key, result);
-  return result;
-}
+    REVERSE_CACHE.set(key, result);
+    return result;
+  }
 
   function classifyVenue(tags = {}) {
-  const amenity = String(tags.amenity || "").toLowerCase();
-  const name = String(tags.name || "").toLowerCase();
-  const cuisine = String(tags.cuisine || "").toLowerCase();
-  const tourism = String(tags.tourism || "").toLowerCase();
-  const leisure = String(tags.leisure || "").toLowerCase();
-  const sport = String(tags.sport || "").toLowerCase();
-  const text = `${amenity} ${name} ${cuisine} ${tourism} ${leisure} ${sport}`;
+    const amenity = String(tags.amenity || "").toLowerCase();
+    const name = String(tags.name || "").toLowerCase();
+    const cuisine = String(tags.cuisine || "").toLowerCase();
+    const tourism = String(tags.tourism || "").toLowerCase();
+    const leisure = String(tags.leisure || "").toLowerCase();
+    const sport = String(tags.sport || "").toLowerCase();
+    const text = `${amenity} ${name} ${cuisine} ${tourism} ${leisure} ${sport}`;
 
-  if (text.includes("casino") && (text.includes("club") || text.includes("nightclub"))) return "Casino Nightclub";
-  if (amenity === "nightclub") return "Nightclub";
-  if (text.includes("sports bar") || sport || text.includes("sports")) return "Sports Bar";
-  if (amenity === "pub") return "Pub";
-  if (amenity === "bar") return "Bar";
-  if (text.includes("tavern")) return "Tavern";
-  if (text.includes("lounge")) return "Lounge";
-  if (text.includes("dive")) return "Dive Bar";
-  if (text.includes("arcade")) return "Bar Arcade";
-  if (text.includes("axe")) return "Axe Throwing";
-  if (text.includes("billiard") || text.includes("pool hall")) return "Pool Hall";
-  if (
-    text.includes("concert") ||
-    text.includes("music venue") ||
-    text.includes("performing arts") ||
-    text.includes("theater") ||
-    tourism === "attraction"
-  ) return "Concert Venue";
-  if (text.includes("beach bar") || text.includes("boardwalk") || text.includes("beach")) return "Beach Bar";
-  if (amenity === "restaurant" && (text.includes("bar") || text.includes("lounge"))) return "Restaurant Bar";
-  if (amenity === "restaurant") return "Restaurant";
-  if (amenity === "biergarten") return "Beer Garden";
-  if (amenity === "casino") return "Casino";
-  return "Venue";
-}
- 
+    if (text.includes("casino") && (text.includes("club") || text.includes("nightclub"))) return "Casino Nightclub";
+    if (amenity === "nightclub") return "Nightclub";
+    if (text.includes("sports bar") || sport || text.includes("sports")) return "Sports Bar";
+    if (amenity === "pub") return "Pub";
+    if (amenity === "bar") return "Bar";
+    if (text.includes("tavern")) return "Tavern";
+    if (text.includes("lounge")) return "Lounge";
+    if (text.includes("dive")) return "Dive Bar";
+    if (text.includes("arcade")) return "Bar Arcade";
+    if (text.includes("axe")) return "Axe Throwing";
+    if (text.includes("billiard") || text.includes("pool hall")) return "Pool Hall";
+    if (
+      text.includes("concert") ||
+      text.includes("music venue") ||
+      text.includes("performing arts") ||
+      text.includes("theater") ||
+      tourism === "attraction"
+    ) return "Concert Venue";
+    if (text.includes("beach bar") || text.includes("boardwalk") || text.includes("beach")) return "Beach Bar";
+    if (amenity === "restaurant" && (text.includes("bar") || text.includes("lounge"))) return "Restaurant Bar";
+    if (amenity === "restaurant") return "Restaurant";
+    if (amenity === "biergarten") return "Beer Garden";
+    if (amenity === "casino") return "Casino";
+    return "Venue";
+  }
 
   function restaurantCuisineLabel(tags = {}) {
     const cuisine = String(tags.cuisine || "").toLowerCase();
@@ -355,7 +354,7 @@ document.addEventListener("DOMContentLoaded", () => {
       amenity === "nightclub" ||
       amenity === "biergarten" ||
       amenity === "casino" ||
-      tourism === "attraction" ||
+      text.includes("sports bar") ||
       text.includes("tavern") ||
       text.includes("lounge") ||
       text.includes("dive") ||
@@ -363,10 +362,7 @@ document.addEventListener("DOMContentLoaded", () => {
       text.includes("axe") ||
       text.includes("pool hall") ||
       text.includes("billiard") ||
-      text.includes("concert") ||
-      text.includes("music") ||
-      text.includes("theater") ||
-      text.includes("dj");
+      text.includes("cocktail");
 
     const restaurantMatch =
       amenity === "restaurant" ||
@@ -522,6 +518,41 @@ out center tags;
     return false;
   }
 
+  function getPlaceZip(place) {
+    return extractZip(
+      place.zipResolved ||
+      place.zipHint ||
+      place.fullAddress ||
+      place.address ||
+      ""
+    );
+  }
+
+  function getPlaceTown(place) {
+    return normalize(
+      place.townResolved ||
+      place.townHint ||
+      ""
+    );
+  }
+
+  function filterPlacesForArea(places, areaInfo) {
+    const targetZip = extractZip(areaInfo.zip || "");
+    const targetTown = normalize(areaInfo.town || "");
+
+    if (targetZip) {
+      const zipMatches = places.filter((p) => getPlaceZip(p) === targetZip);
+      if (zipMatches.length) return zipMatches;
+    }
+
+    if (targetTown) {
+      const townMatches = places.filter((p) => getPlaceTown(p) === targetTown);
+      if (townMatches.length) return townMatches;
+    }
+
+    return [];
+  }
+
   function matchesSoloFilters(place, filters) {
     const hay = normalize(
       `${place.name} ${place.type} ${place.address} ${place.fullAddress || ""} ${JSON.stringify(place.tags || {})}`
@@ -617,8 +648,7 @@ out center tags;
     html += `</div>`;
     return html;
   }
-
-  function helpBoxHtml(title, text) {
+    function helpBoxHtml(title, text) {
     return `
       <div class="card warning-card">
         <p style="margin:0;"><b>${escapeHtml(title)}:</b> ${escapeHtml(text)}</p>
@@ -683,7 +713,7 @@ out center tags;
   }
 
   function renderSoloResults(center, areaInfo, places, filters) {
-    const localOnly = places.filter((p) => sameTownOrZip(p, areaInfo));
+    const localOnly = filterPlacesForArea(places, areaInfo);
     const aliveOnly = localOnly.filter((p) => !knownClosed(p));
     const filtered = aliveOnly.filter((p) => matchesSoloFilters(p, filters));
 
@@ -705,6 +735,9 @@ out center tags;
   }
 
   function renderMiddleResults(mid, midpointInfo, places, geoA, geoB, mode) {
+    const localPlaces = filterPlacesForArea(places, midpointInfo)
+      .filter((p) => !knownClosed(p));
+
     els.results.innerHTML = `
       <h2>Meet in the Middle Results</h2>
       ${helpBoxHtml("Tip", "Use clean addresses like 137 Fleming Ave, Newark, NJ 07105.")}
@@ -720,7 +753,7 @@ out center tags;
         </div>
         ${modeButtonsHtml(mode)}
       </div>
-      ${placeCardsHtml(mid, midpointInfo, places)}
+      ${placeCardsHtml(mid, midpointInfo, localPlaces)}
     `;
 
     lastMidpointState = {
@@ -735,6 +768,9 @@ out center tags;
   }
 
   function renderGroupResults(mid, midpointInfo, places, geos, mode) {
+    const localPlaces = filterPlacesForArea(places, midpointInfo)
+      .filter((p) => !knownClosed(p));
+
     const pointsHtml = geos
       .map((g, i) => `<p><b>Point ${i + 1}:</b> ${escapeHtml(g.display)}</p>`)
       .join("");
@@ -753,7 +789,7 @@ out center tags;
         </div>
         ${modeButtonsHtml(mode)}
       </div>
-      ${placeCardsHtml(mid, midpointInfo, places)}
+      ${placeCardsHtml(mid, midpointInfo, localPlaces)}
     `;
 
     lastMidpointState = {
@@ -1312,52 +1348,54 @@ out center tags;
   }
 
   function initializeApp() {
-  addExtraMusicOptions();
-  injectHelpText();
-  setupStarterTowns();
-  setupTopTabs();
-  setupActionButtons();
-  setupEnterKeys();
-  showPanel("solo");
+    addExtraMusicOptions();
+    injectHelpText();
+    setupStarterTowns();
+    setupTopTabs();
+    setupActionButtons();
+    setupEnterKeys();
+    showPanel("solo");
 
-  if (els.results && !els.results.innerHTML.trim()) {
-    els.results.innerHTML = `
-      <div class="card">
-        <h3 style="margin-top:0;">NightScout ready</h3>
-        <p style="margin-bottom:8px;">Search by town, ZIP, or address. Use Middle for two locations, Group for multiple people, and AI for NJ nightlife prompts.</p>
-        <p style="margin-bottom:0;">Starter towns are loaded for quick testing.</p>
-      </div>
-    `;
+    if (els.results && !els.results.innerHTML.trim()) {
+      els.results.innerHTML = `
+        <div class="card">
+          <h3 style="margin-top:0;">NightScout ready</h3>
+          <p style="margin-bottom:8px;">Search by town, ZIP, or address. Use Middle for two locations, Group for multiple people, and AI for NJ nightlife prompts.</p>
+          <p style="margin-bottom:0;">Starter towns are loaded for quick testing.</p>
+        </div>
+      `;
+    }
   }
-}
 
-function checkLateNightWarning() {
-  const now = new Date();
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
+  function checkLateNightWarning() {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
 
-  const alreadyShown = localStorage.getItem("nightWarningShown");
-  const today = new Date().toDateString();
+    const alreadyShown = localStorage.getItem("nightWarningShown");
+    const today = new Date().toDateString();
 
-  if (hours === 0 && minutes >= 15 && alreadyShown !== today) {
+    if (hours === 0 && minutes >= 15 && alreadyShown !== today) {
+      const warning = document.getElementById("nightWarning");
+      if (warning) {
+        warning.style.display = "block";
+        warning.style.pointerEvents = "auto";
+      }
+      localStorage.setItem("nightWarningShown", today);
+    }
+  }
+
+  function closeNightWarning() {
     const warning = document.getElementById("nightWarning");
     if (warning) {
-      warning.style.display = "block";
-      warning.style.pointerEvents = "auto";
+      warning.style.display = "none";
+      warning.style.pointerEvents = "none";
     }
-    localStorage.setItem("nightWarningShown", today);
   }
-}
 
-function closeNightWarning() {
-  const warning = document.getElementById("nightWarning");
-  if (warning) {
-    warning.style.display = "none";
-    warning.style.pointerEvents = "none";
-  }
-}
+  window.closeNightWarning = closeNightWarning;
 
-setInterval(checkLateNightWarning, 60000);
+  setInterval(checkLateNightWarning, 60000);
 
-initializeApp();
+  initializeApp();
 });
