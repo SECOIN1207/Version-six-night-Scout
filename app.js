@@ -111,6 +111,31 @@ document.addEventListener("DOMContentLoaded", () => {
     "five guys"
   ];
 
+  const DESSERT_WORDS = [
+    "italian ice",
+    "ice cream",
+    "dessert",
+    "gelato",
+    "froyo",
+    "frozen yogurt",
+    "bakery",
+    "donut",
+    "coffee shop",
+    "bubble tea",
+    "boba"
+  ];
+
+  const MEDICAL_WORDS = [
+    "urgent care",
+    "medical",
+    "doctor",
+    "hospital",
+    "clinic",
+    "pharmacy",
+    "rehab",
+    "wellness center"
+  ];
+
   const GEOCODE_CACHE = new Map();
   const REVERSE_CACHE = new Map();
   let lastMidpointState = null;
@@ -596,7 +621,21 @@ out center tags;
         "bar arcade": ["arcade"],
         "axe throwing": ["axe"],
         "restaurant bar": ["restaurant bar", "bar", "lounge"],
-        restaurant: ["restaurant", "italian", "pizza", "sushi", "portuguese", "brazilian", "spanish", "steakhouse"]
+        restaurant: [
+          "restaurant",
+          "italian",
+          "pizza",
+          "sushi",
+          "portuguese",
+          "brazilian",
+          "spanish",
+          "steakhouse",
+          "mediterranean",
+          "greek",
+          "moroccan",
+          "ethiopian",
+          "seafood"
+        ]
       };
 
       const needed = venueMap[filters.venue] || [filters.venue];
@@ -645,6 +684,7 @@ out center tags;
     if (hay.includes("nightclub") || hay.includes("club")) return "Usually 20s–30s";
     if (hay.includes("pub") || hay.includes("tavern")) return "Mixed adult crowd";
     if (hay.includes("lounge")) return "Usually 30+";
+    if (hay.includes("wine") || hay.includes("cocktail")) return "Usually 30+";
     return "Crowd not verified";
   }
 
@@ -653,19 +693,74 @@ out center tags;
     return hay.includes("wicked wolf");
   }
 
-  function isFastFood(place) {
-    const hay = normalize(
-      `${place.name} ${place.type} ${place.fullAddress || ""} ${JSON.stringify(place.tags || {})}`
+  function placeHay(place) {
+    return normalize(
+      `${place.name} ${place.type} ${place.fullAddress || ""} ${place.address || ""} ${JSON.stringify(place.tags || {})}`
     );
+  }
+
+  function isFastFood(place) {
+    const hay = placeHay(place);
     return FAST_FOOD_WORDS.some((word) => hay.includes(normalize(word)));
   }
 
-  function isLikelyRestaurant(place) {
-    const hay = normalize(
-      `${place.name} ${place.type} ${place.fullAddress || ""} ${JSON.stringify(place.tags || {})}`
-    );
+  function isDessertOrSnackSpot(place) {
+    const hay = placeHay(place);
+    return DESSERT_WORDS.some((word) => hay.includes(normalize(word)));
+  }
 
-    if (isFastFood(place)) return false;
+  function isMedicalOrNonNight(place) {
+    const hay = placeHay(place);
+    return MEDICAL_WORDS.some((word) => hay.includes(normalize(word)));
+  }
+
+  function isHighEndRestaurant(place) {
+    const hay = placeHay(place);
+    return (
+      hay.includes("steakhouse") ||
+      hay.includes("fine dining") ||
+      hay.includes("wine bar") ||
+      hay.includes("cocktail") ||
+      hay.includes("seafood") ||
+      hay.includes("chophouse") ||
+      hay.includes("oyster") ||
+      hay.includes("bistro") ||
+      hay.includes("brasserie") ||
+      hay.includes("lounge")
+    );
+  }
+
+  function isMatureDrinksSpot(place) {
+    const hay = placeHay(place);
+    return (
+      hay.includes("cocktail") ||
+      hay.includes("wine") ||
+      hay.includes("lounge") ||
+      hay.includes("restaurant bar") ||
+      hay.includes("bistro") ||
+      hay.includes("jazz") ||
+      hay.includes("piano")
+    );
+  }
+
+  function isYoungPartyBar(place) {
+    const hay = placeHay(place);
+    return (
+      hay.includes("college") ||
+      hay.includes("nightclub") ||
+      hay.includes("dj") ||
+      hay.includes("beer pong") ||
+      hay.includes("sports bar") ||
+      hay.includes("texas arizona")
+    );
+  }
+
+  function isLikelyRestaurant(place) {
+    const hay = placeHay(place);
+
+    if (isFastFood(place) || isDessertOrSnackSpot(place) || isMedicalOrNonNight(place)) {
+      return false;
+    }
 
     return (
       place.type === "Restaurant" ||
@@ -689,11 +784,11 @@ out center tags;
   }
 
   function isLikelyDrinksSpot(place) {
-    const hay = normalize(
-      `${place.name} ${place.type} ${place.fullAddress || ""} ${JSON.stringify(place.tags || {})}`
-    );
+    const hay = placeHay(place);
 
-    if (isFastFood(place)) return false;
+    if (isFastFood(place) || isDessertOrSnackSpot(place) || isMedicalOrNonNight(place)) {
+      return false;
+    }
 
     return (
       place.type === "Bar" ||
@@ -712,11 +807,11 @@ out center tags;
   }
 
   function isLikelyCrowdSpot(place) {
-    const hay = normalize(
-      `${place.name} ${place.type} ${place.fullAddress || ""} ${JSON.stringify(place.tags || {})}`
-    );
+    const hay = placeHay(place);
 
-    if (isFastFood(place)) return false;
+    if (isFastFood(place) || isDessertOrSnackSpot(place) || isMedicalOrNonNight(place)) {
+      return false;
+    }
 
     return (
       place.type === "Nightclub" ||
@@ -776,122 +871,209 @@ out center tags;
   }
 
   function parseAIOptions(prompt) {
-    const text = normalize(prompt);
+    const lower = normalize(prompt);
 
     let cuisine = "";
     for (const word of CUISINE_KEYWORDS) {
-      if (text.includes(normalize(word))) {
+      if (lower.includes(normalize(word))) {
         cuisine = word;
         break;
       }
     }
 
     let age = "any";
-    if (text.includes("40") || text.includes("50") || text.includes("older crowd") || text.includes("mature")) age = "40+";
-    else if (text.includes("30")) age = "30+";
-    else if (text.includes("20")) age = "20s";
+    if (
+      lower.includes("50") ||
+      lower.includes("40") ||
+      lower.includes("older crowd") ||
+      lower.includes("mature")
+    ) {
+      age = "40+";
+    } else if (lower.includes("30")) {
+      age = "30+";
+    } else if (lower.includes("20")) {
+      age = "20s";
+    }
 
     let budget = "moderate";
-    if (text.includes("cheap") || text.includes("$5 beer") || text.includes("happy hour") || text.includes("cheap drinks")) budget = "cheap";
-    if (text.includes("upscale") || text.includes("fine dining") || text.includes("expensive") || text.includes("steakhouse")) budget = "upscale";
+    if (
+      lower.includes("cheap") ||
+      lower.includes("$5 beer") ||
+      lower.includes("happy hour") ||
+      lower.includes("cheap drinks") ||
+      lower.includes("cheap cocktails")
+    ) {
+      budget = "cheap";
+    }
+    if (
+      lower.includes("upscale") ||
+      lower.includes("fine dining") ||
+      lower.includes("expensive") ||
+      lower.includes("steakhouse") ||
+      lower.includes("high end") ||
+      lower.includes("high-end") ||
+      lower.includes("five star") ||
+      lower.includes("5 star")
+    ) {
+      budget = "upscale";
+    }
 
     return {
       cuisine,
       age,
       budget,
-      wantsBrunch: text.includes("brunch") || text.includes("sunday"),
-      wantsWaterfront: text.includes("waterfront") || text.includes("on the water"),
-      wantsRooftop: text.includes("rooftop"),
-      wantsLiveMusic: text.includes("live music") || text.includes("band"),
-      wantsDJ: text.includes("dj"),
-      wantsHappyHour: text.includes("happy hour") || text.includes("cheap cocktails") || text.includes("cheap beers"),
-      wantsDateNight: text.includes("date") || text.includes("girlfriend") || text.includes("wife") || text.includes("romantic"),
-      wantsFriends: text.includes("buddy") || text.includes("friends") || text.includes("group"),
-      wantsFun: text.includes("fun") || text.includes("great night") || text.includes("good time")
+      wantsBrunch: lower.includes("brunch") || lower.includes("sunday"),
+      wantsWaterfront: lower.includes("waterfront") || lower.includes("on the water"),
+      wantsRooftop: lower.includes("rooftop"),
+      wantsLiveMusic: lower.includes("live music") || lower.includes("band"),
+      wantsDJ: lower.includes("dj"),
+      wantsHappyHour:
+        lower.includes("happy hour") ||
+        lower.includes("cheap cocktails") ||
+        lower.includes("cheap beers"),
+      wantsDateNight:
+        lower.includes("date") ||
+        lower.includes("girlfriend") ||
+        lower.includes("wife") ||
+        lower.includes("romantic"),
+      wantsFriends:
+        lower.includes("buddy") ||
+        lower.includes("friends") ||
+        lower.includes("group"),
+      wantsFun:
+        lower.includes("fun") ||
+        lower.includes("great night") ||
+        lower.includes("good time"),
+      wantsHighEnd:
+        lower.includes("high end") ||
+        lower.includes("high-end") ||
+        lower.includes("five star") ||
+        lower.includes("5 star") ||
+        lower.includes("upscale") ||
+        lower.includes("nice restaurant") ||
+        lower.includes("fine dining"),
+      wantsCocktails:
+        lower.includes("cocktail") ||
+        lower.includes("cocktails") ||
+        lower.includes("martini") ||
+        lower.includes("drinks afterwards") ||
+        lower.includes("drinks after") ||
+        lower.includes("go for drinks")
     };
   }
 
   function scoreRestaurant(place, prefs) {
-    const hay = normalize(
-      `${place.name} ${place.type} ${place.fullAddress || ""} ${JSON.stringify(place.tags || {})}`
-    );
-
+    const hay = placeHay(place);
     let score = 0;
 
     if (!isLikelyRestaurant(place)) score -= 1000;
-    if (isFastFood(place)) score -= 1000;
+    if (isFastFood(place)) score -= 1200;
+    if (isDessertOrSnackSpot(place)) score -= 1000;
+    if (isMedicalOrNonNight(place)) score -= 1500;
 
-    if (place.website) score += 8;
+    if (place.website) score += 10;
     if (place.menu) score += 10;
-    if (place.hours) score += 6;
-    if (place.type === "Restaurant Bar") score += 10;
-    if (hay.includes("steakhouse")) score += 10;
-    if (hay.includes("seafood")) score += 8;
-    if (hay.includes("italian")) score += 8;
-    if (hay.includes("sushi")) score += 8;
-    if (hay.includes("spanish")) score += 8;
-    if (hay.includes("portuguese")) score += 8;
-    if (hay.includes("brazilian")) score += 8;
-    if (hay.includes("mediterranean")) score += 8;
-    if (hay.includes("greek")) score += 8;
-    if (hay.includes("brunch")) score += 8;
+    if (place.hours) score += 8;
+    if (place.fullAddress && place.fullAddress.length > 12) score += 5;
+    if (place.type === "Restaurant Bar") score += 8;
 
     if (prefs.cuisine && hay.includes(normalize(prefs.cuisine))) score += 40;
     if (prefs.wantsBrunch && hay.includes("brunch")) score += 35;
-    if (prefs.wantsDateNight && (hay.includes("steakhouse") || hay.includes("wine") || hay.includes("piano"))) score += 15;
-    if (prefs.budget === "cheap" && (hay.includes("pizza") || hay.includes("mexican") || hay.includes("happy hour"))) score += 12;
-    if (prefs.budget === "upscale" && (hay.includes("steakhouse") || hay.includes("seafood") || hay.includes("wine"))) score += 15;
+
+    if (prefs.wantsHighEnd) {
+      if (isHighEndRestaurant(place)) score += 70;
+      if (hay.includes("steakhouse")) score += 35;
+      if (hay.includes("seafood")) score += 20;
+      if (hay.includes("wine")) score += 15;
+      if (hay.includes("pizza")) score -= 30;
+      if (hay.includes("slice")) score -= 35;
+    }
+
+    if (prefs.wantsDateNight) {
+      if (isHighEndRestaurant(place)) score += 30;
+      if (hay.includes("romantic")) score += 20;
+      if (hay.includes("wine")) score += 15;
+    }
+
+    if (prefs.age === "30+" || prefs.age === "40+" || prefs.age === "50+") {
+      if (isHighEndRestaurant(place)) score += 18;
+      if (hay.includes("lounge")) score += 10;
+      if (hay.includes("steakhouse")) score += 10;
+      if (isYoungPartyBar(place)) score -= 25;
+    }
+
+    if (prefs.budget === "cheap") {
+      if (hay.includes("mexican") || hay.includes("pizza") || hay.includes("happy hour")) score += 10;
+    }
 
     return score;
   }
 
   function scoreDrinks(place, prefs) {
-    const hay = normalize(
-      `${place.name} ${place.type} ${place.fullAddress || ""} ${JSON.stringify(place.tags || {})}`
-    );
-
+    const hay = placeHay(place);
     let score = 0;
 
     if (!isLikelyDrinksSpot(place)) score -= 1000;
-    if (isFastFood(place)) score -= 1000;
+    if (isFastFood(place)) score -= 1500;
+    if (isDessertOrSnackSpot(place)) score -= 1200;
+    if (isMedicalOrNonNight(place)) score -= 1500;
 
-    if (place.website) score += 6;
-    if (place.hours) score += 6;
-    if (place.type === "Lounge") score += 12;
-    if (place.type === "Restaurant Bar") score += 10;
-    if (place.type === "Bar") score += 8;
-    if (place.type === "Pub") score += 6;
+    if (place.website) score += 8;
+    if (place.hours) score += 8;
 
-    if (prefs.wantsWaterfront && hay.includes("waterfront")) score += 35;
-    if (prefs.wantsRooftop && hay.includes("rooftop")) score += 35;
-    if (prefs.wantsHappyHour && hay.includes("happy hour")) score += 30;
-    if (prefs.budget === "cheap" && (hay.includes("dive") || hay.includes("pub") || hay.includes("tavern"))) score += 15;
-    if (prefs.wantsDateNight && (hay.includes("cocktail") || hay.includes("wine") || hay.includes("lounge"))) score += 15;
-    if (prefs.wantsFriends && (hay.includes("sports") || hay.includes("pub") || hay.includes("tavern"))) score += 10;
+    if (prefs.wantsCocktails) {
+      if (hay.includes("cocktail")) score += 40;
+      if (hay.includes("lounge")) score += 25;
+      if (hay.includes("wine")) score += 20;
+    }
+
+    if (prefs.wantsWaterfront && hay.includes("waterfront")) score += 25;
+    if (prefs.wantsRooftop && hay.includes("rooftop")) score += 25;
+    if (prefs.wantsHappyHour && hay.includes("happy hour")) score += 20;
+
+    if (prefs.wantsHighEnd || prefs.wantsDateNight) {
+      if (isMatureDrinksSpot(place)) score += 45;
+      if (isYoungPartyBar(place)) score -= 40;
+    }
+
+    if (prefs.age === "30+" || prefs.age === "40+" || prefs.age === "50+") {
+      if (isMatureDrinksSpot(place)) score += 25;
+      if (isYoungPartyBar(place)) score -= 40;
+    }
+
+    if (prefs.budget === "cheap") {
+      if (hay.includes("dive") || hay.includes("pub") || hay.includes("tavern")) score += 15;
+    }
 
     return score;
   }
-    function scoreCrowdSpot(place, prefs) {
-    const hay = normalize(
-      `${place.name} ${place.type} ${place.fullAddress || ""} ${JSON.stringify(place.tags || {})}`
-    );
 
+  function scoreCrowdSpot(place, prefs) {
+    const hay = placeHay(place);
     let score = 0;
 
     if (!isLikelyCrowdSpot(place)) score -= 1000;
-    if (isFastFood(place)) score -= 1000;
+    if (isFastFood(place)) score -= 1500;
+    if (isDessertOrSnackSpot(place)) score -= 1200;
+    if (isMedicalOrNonNight(place)) score -= 1500;
 
     if (place.website) score += 6;
     if (place.hours) score += 6;
 
-    if (prefs.wantsDJ && hay.includes("dj")) score += 30;
-    if (prefs.wantsLiveMusic && hay.includes("live music")) score += 30;
-    if (prefs.wantsWaterfront && hay.includes("waterfront")) score += 20;
-    if (prefs.wantsRooftop && hay.includes("rooftop")) score += 20;
-    if (prefs.age === "40+" && (hay.includes("lounge") || hay.includes("wine") || hay.includes("restaurant bar"))) score += 18;
-    if (prefs.age === "20s" && (hay.includes("club") || hay.includes("nightclub") || hay.includes("dj"))) score += 18;
-    if (prefs.wantsFriends && (hay.includes("pub") || hay.includes("bar") || hay.includes("sports"))) score += 10;
-    if (prefs.wantsDateNight && (hay.includes("lounge") || hay.includes("cocktail") || hay.includes("rooftop"))) score += 12;
+    if (prefs.age === "20s") {
+      if (isYoungPartyBar(place)) score += 30;
+    }
+
+    if (prefs.age === "30+" || prefs.age === "40+" || prefs.age === "50+") {
+      if (isMatureDrinksSpot(place)) score += 35;
+      if (isYoungPartyBar(place)) score -= 45;
+    }
+
+    if (prefs.wantsDJ && hay.includes("dj")) score += 20;
+    if (prefs.wantsLiveMusic && hay.includes("live music")) score += 20;
+    if (prefs.wantsDateNight && isMatureDrinksSpot(place)) score += 20;
+    if (prefs.wantsWaterfront && hay.includes("waterfront")) score += 12;
+    if (prefs.wantsRooftop && hay.includes("rooftop")) score += 12;
 
     return score;
   }
@@ -931,6 +1113,10 @@ out center tags;
 
     if (prefs.cuisine) {
       parts.push(`I leaned toward ${titleCase(prefs.cuisine)} spots first.`);
+    }
+
+    if (prefs.wantsHighEnd) {
+      parts.push(`I pushed the dinner picks more upscale.`);
     }
 
     if (prefs.age !== "any") {
@@ -991,9 +1177,9 @@ out center tags;
         <p style="margin:6px 0;">
           ${
             dinnerPicks[0]
-              ? `Start with ${dinnerPicks[0].name}`
-              : `Start with a good dinner spot in ${areaInfo.town}`
-          }.
+              ? `Start with ${dinnerPicks[0].name}.`
+              : `Start with a good dinner spot in ${areaInfo.town}.`
+          }
           ${
             drinkPicks[0]
               ? ` Then move to ${drinkPicks[0].name} for drinks.`
@@ -1008,8 +1194,7 @@ out center tags;
       </div>
     `;
   }
-
-  function helpBoxHtml(title, text) {
+    function helpBoxHtml(title, text) {
     return `
       <div class="card warning-card">
         <p style="margin:0;"><b>${escapeHtml(title)}:</b> ${escapeHtml(text)}</p>
@@ -1101,7 +1286,7 @@ out center tags;
       .filter((p) => {
         if (mode === "restaurants") return isLikelyRestaurant(p);
         if (mode === "nightlife") return isLikelyDrinksSpot(p) || isLikelyCrowdSpot(p);
-        return true;
+        return !isMedicalOrNonNight(p);
       });
 
     els.results.innerHTML = `
@@ -1139,7 +1324,7 @@ out center tags;
       .filter((p) => {
         if (mode === "restaurants") return isLikelyRestaurant(p);
         if (mode === "nightlife") return isLikelyDrinksSpot(p) || isLikelyCrowdSpot(p);
-        return true;
+        return !isMedicalOrNonNight(p);
       });
 
     const pointsHtml = geos
@@ -1181,7 +1366,7 @@ out center tags;
     let places = [];
     try {
       places = await searchNearbyPlaces(lastMidpointState.mid.lat, lastMidpointState.mid.lng, mode);
-      await enrichPlacesWithReverse(places, 10);
+      await enrichPlacesWithReverse(places, 18);
     } catch (_) {
       places = [];
     }
@@ -1256,7 +1441,7 @@ out center tags;
       }
 
       const places = await searchNearbyPlaces(center.lat, center.lng, mode, 4200);
-      await enrichPlacesWithReverse(places, 14);
+      await enrichPlacesWithReverse(places, 18);
 
       renderSoloResults(center, areaInfo, places, filters);
       lastMidpointState = null;
@@ -1287,7 +1472,7 @@ out center tags;
       const midpointInfo = await reverseGeocode(mid.lat, mid.lng);
 
       let places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
-      await enrichPlacesWithReverse(places, 10);
+      await enrichPlacesWithReverse(places, 18);
 
       renderMiddleResults(mid, midpointInfo, places, geoA, geoB, "nightlife");
     } catch (err) {
@@ -1322,7 +1507,7 @@ out center tags;
       const midpointInfo = await reverseGeocode(mid.lat, mid.lng);
 
       let places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
-      await enrichPlacesWithReverse(places, 10);
+      await enrichPlacesWithReverse(places, 18);
 
       renderGroupResults(mid, midpointInfo, places, geos, "nightlife");
     } catch (err) {
@@ -1360,9 +1545,12 @@ out center tags;
       const areaInfo = await reverseGeocode(center.lat, center.lng);
 
       let places = await searchNearbyPlaces(center.lat, center.lng, "everything", 4200);
-      await enrichPlacesWithReverse(places, 18);
+      await enrichPlacesWithReverse(places, 24);
 
-      const localOnly = filterPlacesForArea(places, areaInfo).filter((p) => !knownClosed(p));
+      const localOnly = filterPlacesForArea(places, areaInfo)
+        .filter((p) => !knownClosed(p))
+        .filter((p) => !isMedicalOrNonNight(p))
+        .filter((p) => !isFastFood(p));
 
       const dinnerPicks = pickTopUnique(localOnly, (p) => scoreRestaurant(p, prefs), 3);
       const drinkPicks = pickTopUnique(localOnly, (p) => scoreDrinks(p, prefs), 2);
@@ -1458,7 +1646,7 @@ out center tags;
       p.className = "muted ai-help";
       p.style.marginTop = "0";
       p.textContent =
-        "Tip: ask like this: Build me a fun night in Hoboken, NJ with Italian food and a 30+ crowd.";
+        "Tip: ask like this: Build me a fun night in Hoboken, NJ with a high-end dinner, cocktails after, and a 30+ crowd.";
       els.panelAi.insertBefore(p, els.panelAi.firstChild);
     }
   }
@@ -1622,6 +1810,5 @@ out center tags;
   window.closeNightWarning = closeNightWarning;
 
   setInterval(checkLateNightWarning, 60000);
-
   initializeApp();
 });
