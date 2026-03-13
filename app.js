@@ -966,52 +966,6 @@ const menu = safeExternalUrl(menuRaw);
       }
     }
   }
-
-  async function searchNearbyPlaces(lat, lng, mode = "nightlife", radiusMeters = 4200) {
-    const overpassQuery = `
-[out:json][timeout:25];
-(
-  node["amenity"](around:${radiusMeters},${lat},${lng});
-  way["amenity"](around:${radiusMeters},${lat},${lng});
-  relation["amenity"](around:${radiusMeters},${lat},${lng});
-  node["tourism"](around:${radiusMeters},${lat},${lng});
-  way["tourism"](around:${radiusMeters},${lat},${lng});
-  relation["tourism"](around:${radiusMeters},${lat},${lng});
-  node["leisure"](around:${radiusMeters},${lat},${lng});
-  way["leisure"](around:${radiusMeters},${lat},${lng});
-  relation["leisure"](around:${radiusMeters},${lat},${lng});
-);
-out center tags;
-`;
-
-    const data = await runOverpassWithFallback(overpassQuery);
-    const elements = Array.isArray(data.elements) ? data.elements : [];
-
-    const mapped = elements
-      .map((el) => {
-        const tags = el.tags || {};
-        const placeLat = el.lat ?? el.center?.lat;
-        const placeLng = el.lon ?? el.center?.lon;
-        const rawText = normalize(
-          `${tags.name || ""} ${tags.amenity || ""} ${tags.cuisine || ""} ${tags.tourism || ""} ${tags.leisure || ""} ${tags.shop || ""}`
-        );
-
-        if (!placeLat || !placeLng || !tags.name) return null;
-        if (!matchesMode(tags, mode)) return null;
-        if (!isRelevantCandidate(tags)) return null;
-        if (hasAny(rawText, HARD_BLOCK_WORDS)) return null;
-        if (hasAny(rawText, MEDICAL_WORDS)) return null;
-        if (hasAny(rawText, FAST_FOOD_WORDS)) return null;
-        if (hasAny(rawText, DESSERT_WORDS)) return null;
-
-        const phone = tags.phone || tags["contact:phone"] || "";
-        const website = tags.website || tags["contact:website"] || tags.url || "";
-        const hours = tags.opening_hours || tags["contact:opening_hours"] || "";
-        const menu = tags.menu || tags["contact:menu"] || "";
-        const fullAddress = [
-          tags["addr:housenumber"],
-          tags["addr:street"],
-          tags["addr:city"] || tags["addr:town"] || tags["addr:village"],
           tags["addr:postcode"]
         ]
           .filter(Boolean)
