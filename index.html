@@ -56,6 +56,12 @@
       border-color: #111;
     }
 
+    button.active-mode {
+      background: #111;
+      color: #fff;
+      border-color: #111;
+    }
+
     button:disabled {
       opacity: 0.6;
       cursor: not-allowed;
@@ -115,7 +121,10 @@
       max-width: 980px;
     }
 
-    .solo-panel {
+    .solo-panel,
+    .middle-panel,
+    .group-panel,
+    .ai-panel {
       border: 1px solid #ddd;
       border-radius: 18px;
       padding: 18px;
@@ -166,6 +175,7 @@
       cursor: pointer;
       font-weight: 700;
       font-size: 18px;
+      color: #1473d7;
     }
 
     .mode-switch {
@@ -176,12 +186,6 @@
       margin-bottom: 4px;
     }
 
-    .mode-switch button.active-mode {
-      background: #111;
-      color: #fff;
-      border-color: #111;
-    }
-
     .error-card {
       border: 1px solid #f0b4b4;
       background: #fff3f3;
@@ -190,6 +194,13 @@
     .warning-card {
       border: 1px solid #f0d08a;
       background: #fff9e8;
+    }
+
+    .section-divider {
+      height: 1px;
+      background: #e5e5e5;
+      max-width: 980px;
+      margin: 24px 0;
     }
 
     @media (max-width: 700px) {
@@ -232,9 +243,9 @@
   <h1>NightScout</h1>
 
   <p>
-    Meet in the middle. Discover bars, taverns, pubs, lounges, clubs, pool halls,
-    dive bars, bar arcades, axe throwing spots, restaurant bars, waterfront spots,
-    rooftops, and nightlife venues across New Jersey.
+    Meet in the middle. Discover bars, taverns, pubs, lounges, clubs, rooftops,
+    waterfront spots, restaurant bars, dinner options, and nightlife venues
+    across New Jersey.
   </p>
 
   <h2>NJ nightlife</h2>
@@ -247,7 +258,8 @@
   </div>
 
   <p class="muted">
-    Use Solo for one town, Middle for two locations, Group for multiple people, and AI for a quick nightlife prompt.
+    Use Solo for one town, Middle for two locations, Group for multiple people,
+    and AI for a smart dinner-and-drinks plan.
   </p>
 
   <section id="panel-solo" class="tab-panel active-panel">
@@ -282,29 +294,27 @@
           </select>
         </div>
 
-      <label for="soloVenue">Venue type</label>
-<select id="soloVenue">
-  <option value="any">Any</option>
-  <option value="bar">Bar</option>
-  <option value="sports bar">Sports bar</option>
-  <option value="pub">Pub</option>
-  <option value="tavern">Tavern</option>
-  <option value="lounge">Lounge</option>
-  <option value="club">Club</option>
-  <option value="nightclub">Nightclub</option>
-  <option value="casino nightclub">Casino nightclub</option>
-  <option value="dive bar">Dive bar</option>
-  <option value="pool hall">Pool hall</option>
-  <option value="bar arcade">Bar arcade</option>
-  <option value="axe throwing">Axe throwing</option>
-<option value="24 hour food">24 Hour Food / Eatery</option>
-<option value="food truck">Food Truck</option>
-<option value="tacos">Tacos</option>
-<option value="restaurant bar">Restaurant bar</option>
-<option value="concert venue">Concert venue</option>
-<option value="beach bar">Beach bar</option>
-<option value="restaurant">Restaurant</option>
-</select>
+        <div>
+          <label for="soloVenue">Venue type</label>
+          <select id="soloVenue">
+            <option value="any">Any</option>
+            <option value="bar">Bar</option>
+            <option value="sports bar">Sports bar</option>
+            <option value="pub">Pub</option>
+            <option value="tavern">Tavern</option>
+            <option value="lounge">Lounge</option>
+            <option value="club">Club</option>
+            <option value="nightclub">Nightclub</option>
+            <option value="casino nightclub">Casino nightclub</option>
+            <option value="dive bar">Dive bar</option>
+            <option value="pool hall">Pool hall</option>
+            <option value="bar arcade">Bar arcade</option>
+            <option value="axe throwing">Axe throwing</option>
+            <option value="restaurant bar">Restaurant bar</option>
+            <option value="restaurant">Restaurant</option>
+            <option value="concert venue">Concert venue</option>
+            <option value="beach bar">Beach bar</option>
+          </select>
         </div>
 
         <div>
@@ -316,6 +326,8 @@
             <option value="sports">Sports</option>
             <option value="dancing">Dancing</option>
             <option value="cheap drinks">Cheap drinks</option>
+            <option value="mature">Mature</option>
+            <option value="date night">Date night</option>
           </select>
         </div>
       </div>
@@ -326,7 +338,7 @@
       </div>
 
       <p class="muted small">
-        Solo search stays on this page and searches the town, ZIP, address, or coordinates you entered.
+        Solo search stays on this page and searches the exact town or ZIP you entered.
       </p>
 
       <h3>Starter towns</h3>
@@ -340,10 +352,95 @@
     <input id="locA" placeholder="Location A" />
     <input id="locB" placeholder="Location B" />
 
-    <button id="middleBtn" type="button">Meet in the Middle</button>
-  </section>
+    <div class="middle-panel">
+      <div class="row">
+        <div>
+          <label for="middleMode">What are you looking for?</label>
+          <select id="middleMode">
+            <option value="nightlife">Nightlife / drinks</option>
+            <option value="restaurants">Restaurants</option>
+            <option value="everything">Everything</option>
+          </select>
+        </div>
 
-  <section id="panel-group" class="tab-panel">
+        <div>
+          <label for="middleCuisine">Cuisine</label>
+          <select id="middleCuisine">
+            <option value="any">Any</option>
+            <option value="italian">Italian</option>
+            <option value="spanish">Spanish</option>
+            <option value="portuguese">Portuguese</option>
+            <option value="brazilian">Brazilian</option>
+            <option value="sushi">Sushi / Japanese</option>
+            <option value="steakhouse">Steakhouse</option>
+            <option value="mediterranean">Mediterranean</option>
+            <option value="greek">Greek</option>
+            <option value="moroccan">Moroccan</option>
+            <option value="ethiopian">Ethiopian</option>
+            <option value="seafood">Seafood</option>
+            <option value="mexican">Mexican</option>
+            <option value="pizza">Pizza</option>
+            <option value="brunch">Brunch</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="middlePrice">Price range</label>
+          <select id="middlePrice">
+            <option value="any">Any</option>
+            <option value="cheap">$ Cheap</option>
+            <option value="moderate">$$ Moderate</option>
+            <option value="upscale">$$$ Upscale</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="middleCrowd">Crowd</label>
+          <select id="middleCrowd">
+            <option value="any">Any</option>
+            <option value="20s">20s</option>
+            <option value="30+">30+</option>
+            <option value="40+">40+</option>
+            <option value="50+">50+</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="middleVibe">Vibe</label>
+          <select id="middleVibe">
+            <option value="any">Any</option>
+            <option value="waterfront">Waterfront</option>
+            <option value="rooftop">Rooftop</option>
+            <option value="mature">Mature</option>
+            <option value="date night">Date night</option>
+            <option value="happy hour">Happy hour</option>
+            <option value="dancing">Dancing</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="middleStars">Suggested quality</label>
+          <select id="middleStars">
+            <option value="any">Any</option>
+            <option value="high">Higher-end / nicer</option>
+            <option value="mid">Good mid-range</option>
+            <option value="casual">Casual but still good</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="chip-row">
+        <button id="middleBtn" type="button">Meet in the Middle</button>
+      </div>
+
+      <p class="muted small">
+        This will calculate the midpoint first, then only show places from that midpoint town / ZIP.
+      </p>
+    </div>
+  </section>
+    <section id="panel-group" class="tab-panel">
     <h3>Group Coordination</h3>
 
     <textarea
@@ -361,47 +458,202 @@ You can also use:
 40.7440,-74.0324"
     ></textarea>
 
-    <button id="groupBtn" type="button">Group Center</button>
+    <div class="group-panel">
+      <div class="row">
+        <div>
+          <label for="groupMode">What are you looking for?</label>
+          <select id="groupMode">
+            <option value="nightlife">Nightlife / drinks</option>
+            <option value="restaurants">Restaurants</option>
+            <option value="everything">Everything</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="groupCuisine">Cuisine</label>
+          <select id="groupCuisine">
+            <option value="any">Any</option>
+            <option value="italian">Italian</option>
+            <option value="spanish">Spanish</option>
+            <option value="portuguese">Portuguese</option>
+            <option value="brazilian">Brazilian</option>
+            <option value="sushi">Sushi / Japanese</option>
+            <option value="steakhouse">Steakhouse</option>
+            <option value="mediterranean">Mediterranean</option>
+            <option value="greek">Greek</option>
+            <option value="moroccan">Moroccan</option>
+            <option value="ethiopian">Ethiopian</option>
+            <option value="seafood">Seafood</option>
+            <option value="mexican">Mexican</option>
+            <option value="pizza">Pizza</option>
+            <option value="brunch">Brunch</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="groupPrice">Price range</label>
+          <select id="groupPrice">
+            <option value="any">Any</option>
+            <option value="cheap">$ Cheap</option>
+            <option value="moderate">$$ Moderate</option>
+            <option value="upscale">$$$ Upscale</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="groupCrowd">Crowd</label>
+          <select id="groupCrowd">
+            <option value="any">Any</option>
+            <option value="20s">20s</option>
+            <option value="30+">30+</option>
+            <option value="40+">40+</option>
+            <option value="50+">50+</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="groupVibe">Vibe</label>
+          <select id="groupVibe">
+            <option value="any">Any</option>
+            <option value="waterfront">Waterfront</option>
+            <option value="rooftop">Rooftop</option>
+            <option value="mature">Mature</option>
+            <option value="date night">Date night</option>
+            <option value="happy hour">Happy hour</option>
+            <option value="dancing">Dancing</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="groupStars">Suggested quality</label>
+          <select id="groupStars">
+            <option value="any">Any</option>
+            <option value="high">Higher-end / nicer</option>
+            <option value="mid">Good mid-range</option>
+            <option value="casual">Casual but still good</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="chip-row">
+        <button id="groupBtn" type="button">Group Center</button>
+      </div>
+
+      <p class="muted small">
+        Group mode works best with one clean town, ZIP, address, or coordinates per line.
+      </p>
+    </div>
   </section>
 
   <section id="panel-ai" class="tab-panel">
     <h3>Night Plan</h3>
 
-    <input id="aiPrompt" placeholder="Example: rooftop lounge with a DJ" />
+    <div class="ai-panel">
+      <input
+        id="aiPrompt"
+        placeholder="Example: Build me a mature date night in Hoboken, NJ with Italian food and drinks after"
+      />
 
-    <button id="aiBtn" type="button">Generate Night Plan</button>
+      <div class="row">
+        <div>
+          <label for="aiCrowd">Crowd</label>
+          <select id="aiCrowd">
+            <option value="any">Any</option>
+            <option value="20s">20s</option>
+            <option value="30+">30+</option>
+            <option value="40+">40+</option>
+            <option value="50+">50+</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="aiCuisine">Cuisine</label>
+          <select id="aiCuisine">
+            <option value="any">Any</option>
+            <option value="italian">Italian</option>
+            <option value="spanish">Spanish</option>
+            <option value="portuguese">Portuguese</option>
+            <option value="brazilian">Brazilian</option>
+            <option value="sushi">Sushi / Japanese</option>
+            <option value="steakhouse">Steakhouse</option>
+            <option value="mediterranean">Mediterranean</option>
+            <option value="greek">Greek</option>
+            <option value="moroccan">Moroccan</option>
+            <option value="ethiopian">Ethiopian</option>
+            <option value="seafood">Seafood</option>
+            <option value="mexican">Mexican</option>
+            <option value="pizza">Pizza</option>
+            <option value="brunch">Brunch</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="aiBudget">Budget</label>
+          <select id="aiBudget">
+            <option value="moderate">$$ Moderate</option>
+            <option value="cheap">$ Cheap</option>
+            <option value="upscale">$$$ Upscale</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="aiVibe">Vibe</label>
+          <select id="aiVibe">
+            <option value="any">Any</option>
+            <option value="waterfront">Waterfront</option>
+            <option value="rooftop">Rooftop</option>
+            <option value="mature">Mature</option>
+            <option value="date night">Date night</option>
+            <option value="happy hour">Happy hour</option>
+            <option value="dancing">Dancing</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="chip-row">
+        <button id="aiBtn" type="button">Generate Night Plan</button>
+      </div>
+
+      <p class="muted small">
+        AI works best when you include a town or ZIP, like Hoboken, NJ 07030.
+      </p>
+    </div>
   </section>
+
+  <div class="section-divider"></div>
 
   <h2>Results</h2>
   <div id="results"></div>
-<div id="nightWarning" style="
-display:none;
-position:fixed;
-top:50%;
-left:50%;
-transform:translate(-50%,-50%);
-background:white;
-padding:22px;
-border-radius:12px;
-box-shadow:0 8px 30px rgba(0,0,0,0.3);
-z-index:9999;
-text-align:center;
-max-width:320px;
-font-family:Georgia, serif;
-">
 
-<h3>NightScout Check-In</h3>
+  <div id="nightWarning" style="
+    display:none;
+    position:fixed;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    background:white;
+    padding:22px;
+    border-radius:12px;
+    box-shadow:0 8px 30px rgba(0,0,0,0.3);
+    z-index:9999;
+    text-align:center;
+    max-width:320px;
+    font-family:Georgia, serif;
+  ">
+    <h3>NightScout Check-In</h3>
 
-<p>
-No drunk calls, no drunk texts, no midnight love speeches.
-<br><br>
-Get food, drink water, and make better choices than your last tab.
-</p>
+    <p>
+      No drunk calls, no drunk texts, no midnight love speeches.
+      <br /><br />
+      Get food, drink water, and make better choices than your last tab.
+    </p>
 
-<button onclick="closeNightWarning()">Got it 👍</button>
+    <button onclick="closeNightWarning()">Got it 👍</button>
+  </div>
 
-</div>
-  
   <script src="app.js"></script>
 </body>
 </html>
+  
