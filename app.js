@@ -966,53 +966,7 @@ const menu = safeExternalUrl(menuRaw);
       }
     }
   }
-          tags["addr:postcode"]
-        ]
-          .filter(Boolean)
-          .join(" ");
-
-        return {
-          name: tags.name,
-          type: mode === "restaurants" ? restaurantCuisineLabel(tags) : classifyVenue(tags),
-          lat: placeLat,
-          lng: placeLng,
-          address: fullAddress,
-          phone,
-          website,
-          hours,
-          menu,
-          tags,
-          townHint: tags["addr:city"] || tags["addr:town"] || tags["addr:village"] || "",
-          zipHint: tags["addr:postcode"] || ""
-        };
-      })
-      .filter(Boolean);
-
-    const seen = new Set();
-    const deduped = [];
-
-    for (const item of mapped) {
-      const key = `${normalize(item.name)}|${normalize(item.address)}|${item.lat.toFixed(4)}|${item.lng.toFixed(4)}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        deduped.push(item);
-      }
-    }
-
-    return deduped;
-  }
-
-  async function enrichPlacesWithReverse(places, limit = 16) {
-    const targets = places.slice(0, limit);
-
-    await Promise.all(
-      targets.map(async (place) => {
-        try {
-          const rev = await reverseGeocode(place.lat, place.lng);
-          place.fullAddress = rev.address || place.address || "";
-          place.townResolved = rev.town || place.townHint || "";
-          place.zipResolved = rev.zip || place.zipHint || "";
-          place.countyResolved = rev.county || "";
+          
         } catch (_) {
           place.fullAddress = place.address || "";
           place.townResolved = place.townHint || "";
