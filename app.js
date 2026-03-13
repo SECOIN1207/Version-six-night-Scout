@@ -916,19 +916,6 @@ out center tags;
 
     return [];
   }
-    async function fetchOverpass(url, query) {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain;charset=UTF-8"
-      },
-      body: query
-    });
-
-    if (!res.ok) throw new Error("Venue server failed");
-    return res.json();
-  }
-
   async function runOverpassWithFallback(query) {
     try {
       return await fetchOverpass("https://overpass-api.de/api/interpreter", query);
