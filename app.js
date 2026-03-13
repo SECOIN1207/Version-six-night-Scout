@@ -353,7 +353,30 @@ document.addEventListener("DOMContentLoaded", () => {
     if (TOWN_FIXES[norm]) return TOWN_FIXES[norm];
     return q;
   }
+  function ensureHttp(url) {
+    const value = String(url || "").trim();
+    if (!value) return "";
+    if (/^https?:\/\//i.test(value)) return value;
+    return `https://${value}`;
+  }
 
+  function isLikelyWebUrl(url) {
+    const value = String(url || "").trim();
+    if (!value) return false;
+    if (value.startsWith("javascript:")) return false;
+    if (value.startsWith("data:")) return false;
+    return /^https?:\/\//i.test(value) || /^[a-z0-9.-]+\.[a-z]{2,}/i.test(value);
+  }
+
+  function cleanPhone(phone) {
+    return String(phone || "").replace(/[^\d+]/g, "");
+  }
+
+  function safeExternalUrl(url) {
+    const value = String(url || "").trim();
+    if (!isLikelyWebUrl(value)) return "";
+    return ensureHttp(value);
+  }
   async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 12000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -796,9 +819,25 @@ out center tags;
         if (hasAny(rawText, DESSERT_WORDS)) return null;
 
         const phone = tags.phone || tags["contact:phone"] || "";
-        const website = tags.website || tags["contact:website"] || tags.url || "";
-        const hours = tags.opening_hours || tags["contact:opening_hours"] || "";
-        const menu = tags.menu || tags["contact:menu"] || "";
+
+const websiteRaw =
+  tags.website ||
+  tags["contact:website"] ||
+  tags.url ||
+  "";
+
+const hours =
+  tags.opening_hours ||
+  tags["contact:opening_hours"] ||
+  "";
+
+const menuRaw =
+  tags.menu ||
+  tags["contact:menu"] ||
+  "";
+
+const website = safeExternalUrl(websiteRaw);
+const menu = safeExternalUrl(menuRaw);
 
         const fullAddress = [
           tags["addr:housenumber"],
