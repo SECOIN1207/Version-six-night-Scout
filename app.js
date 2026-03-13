@@ -108,7 +108,8 @@ document.addEventListener("DOMContentLoaded", () => {
     "arby's",
     "popeyes",
     "white castle",
-    "five guys"
+    "five guys",
+    "roy rogers"
   ];
 
   const DESSERT_WORDS = [
@@ -134,6 +135,92 @@ document.addEventListener("DOMContentLoaded", () => {
     "pharmacy",
     "rehab",
     "wellness center"
+  ];
+
+  const HARD_BLOCK_WORDS = [
+    "toilets",
+    "toilet",
+    "fuel",
+    "gas station",
+    "service station",
+    "post office",
+    "post depot",
+    "bus station",
+    "bus stop",
+    "platform",
+    "marina",
+    "pier office",
+    "parking",
+    "shower",
+    "social centre",
+    "social_center",
+    "post_depot",
+    "charging station",
+    "car wash",
+    "police",
+    "fire station",
+    "courthouse",
+    "embassy",
+    "school",
+    "church",
+    "bank",
+    "atm",
+    "dentist",
+    "veterinary",
+    "animal hospital",
+    "laundry",
+    "laundromat",
+    "hardware",
+    "storage",
+    "self storage",
+    "warehouse",
+    "residence",
+    "hotel lobby",
+    "motel",
+    "camp site",
+    "camping",
+    "rv park",
+    "marinas",
+    "bus terminal"
+  ];
+
+  const ALLOWED_AMENITIES = new Set([
+    "bar",
+    "pub",
+    "nightclub",
+    "biergarten",
+    "restaurant",
+    "cafe",
+    "casino"
+  ]);
+
+  const KNOWN_HOBOKEN_DINNER_NAMES = [
+    "dino",
+    "halifax",
+    "brass rail",
+    "court street",
+    "ainsworth",
+    "lola",
+    "city bistro",
+    "madison"
+  ];
+
+  const KNOWN_HOBOKEN_DRINK_NAMES = [
+    "ainsworth",
+    "lola",
+    "halifax",
+    "city bistro",
+    "madison",
+    "brass rail",
+    "court street"
+  ];
+
+  const KNOWN_HOBOKEN_CROWD_NAMES = [
+    "city bistro",
+    "madison",
+    "lola",
+    "ainsworth",
+    "brass rail"
   ];
 
   const GEOCODE_CACHE = new Map();
@@ -167,6 +254,10 @@ document.addEventListener("DOMContentLoaded", () => {
   function extractZip(text) {
     const m = String(text || "").match(/\b\d{5}\b/);
     return m ? m[0] : "";
+  }
+
+  function isZipOnly(text) {
+    return /^\d{5}$/.test(String(text || "").trim());
   }
 
   function isLatLng(text) {
@@ -208,6 +299,11 @@ document.addEventListener("DOMContentLoaded", () => {
     return 2 * R * Math.asin(Math.sqrt(a));
   }
 
+  function hasAny(text, words) {
+    const hay = normalize(text);
+    return words.some((word) => hay.includes(normalize(word)));
+  }
+
   function cleanLocationInput(text) {
     let q = String(text || "").trim();
 
@@ -223,6 +319,10 @@ document.addEventListener("DOMContentLoaded", () => {
     q = q.replace(/\s+,/g, ",");
     q = q.replace(/,\s*,/g, ",");
     q = q.trim();
+
+    if (isZipOnly(q)) {
+      q = `${q}, New Jersey, USA`;
+    }
 
     const norm = normalize(q);
     if (TOWN_FIXES[norm]) return TOWN_FIXES[norm];
@@ -278,13 +378,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const zipHint = extractZip(cleaned);
+    const wanted = normalize(cleaned);
+
     const query =
-      cleaned.includes("NJ") || cleaned.includes("New Jersey")
+      cleaned.includes("NJ") || cleaned.includes("New Jersey") || isZipOnly(address)
         ? cleaned
         : `${cleaned}, New Jersey, USA`;
 
     const url =
-      `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8&q=` +
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=10&countrycodes=us&q=` +
       encodeURIComponent(query);
 
     const res = await fetchJsonWithTimeout(
@@ -300,8 +402,6 @@ document.addEventListener("DOMContentLoaded", () => {
       throw new Error(`Town or ZIP not found: ${address}`);
     }
 
-    const wanted = normalize(cleaned);
-
     const scored = data
       .map((item) => {
         const blob = normalize(
@@ -315,33 +415,46 @@ document.addEventListener("DOMContentLoaded", () => {
             item.address?.state,
             item.address?.postcode,
             item.address?.road,
-            item.address?.house_number
+            item.address?.house_number,
+            item.address?.country
           ]
             .filter(Boolean)
             .join(" ")
         );
 
         let score = 0;
-        if (blob.includes("new jersey")) score += 300;
-        if (item.address?.state === "New Jersey") score += 300;
-        if (zipHint && blob.includes(zipHint)) score += 500;
+
+        if (item.address?.country_code === "us") score += 500;
+        if (blob.includes("new jersey")) score += 1200;
+        if (item.address?.state === "New Jersey") score += 1200;
+        else score -= 1500;
+
+        if (zipHint && blob.includes(zipHint)) score += 1400;
+        if (zipHint && item.address?.postcode === zipHint) score += 800;
 
         wanted.split(" ").forEach((part) => {
           if (part && blob.includes(part)) score += 25;
         });
 
-        if (item.class === "place") score += 20;
-        if (["city", "town", "village"].includes(item.type)) score += 20;
+        if (item.class === "place") score += 30;
+        if (["city", "town", "village", "postcode", "residential"].includes(item.type)) score += 30;
+
+        if (blob.includes("italy")) score -= 5000;
+        if (blob.includes("sardinia")) score -= 5000;
 
         return { item, score };
       })
       .sort((a, b) => b.score - a.score);
 
-    const best = scored[0].item;
+    const best = scored[0];
+    if (!best || best.score < 200) {
+      throw new Error(`Could not cleanly match New Jersey location: ${address}`);
+    }
+
     const result = {
-      lat: parseFloat(best.lat),
-      lng: parseFloat(best.lon),
-      display: best.display_name,
+      lat: parseFloat(best.item.lat),
+      lng: parseFloat(best.item.lon),
+      display: best.item.display_name,
       input: address
     };
 
@@ -393,6 +506,69 @@ document.addEventListener("DOMContentLoaded", () => {
     return result;
   }
 
+  function placeHay(place) {
+    return normalize(
+      `${place.name} ${place.type} ${place.fullAddress || ""} ${place.address || ""} ${JSON.stringify(place.tags || {})}`
+    );
+  }
+
+  function isFastFood(place) {
+    return hasAny(placeHay(place), FAST_FOOD_WORDS);
+  }
+
+  function isDessertOrSnackSpot(place) {
+    return hasAny(placeHay(place), DESSERT_WORDS);
+  }
+
+  function isMedicalOrNonNight(place) {
+    return hasAny(placeHay(place), MEDICAL_WORDS);
+  }
+
+  function isHardBlockedPlace(place) {
+    return hasAny(placeHay(place), HARD_BLOCK_WORDS);
+  }
+
+  function isRelevantCandidate(tags = {}) {
+    const amenity = String(tags.amenity || "").toLowerCase();
+    const name = String(tags.name || "").toLowerCase();
+    const cuisine = String(tags.cuisine || "").toLowerCase();
+    const tourism = String(tags.tourism || "").toLowerCase();
+    const leisure = String(tags.leisure || "").toLowerCase();
+    const shop = String(tags.shop || "").toLowerCase();
+    const text = `${amenity} ${name} ${cuisine} ${tourism} ${leisure} ${shop}`;
+
+    if (ALLOWED_AMENITIES.has(amenity)) return true;
+
+    if (
+      text.includes("tavern") ||
+      text.includes("lounge") ||
+      text.includes("cocktail") ||
+      text.includes("wine") ||
+      text.includes("steakhouse") ||
+      text.includes("bistro") ||
+      text.includes("brasserie") ||
+      text.includes("chophouse") ||
+      text.includes("oyster") ||
+      text.includes("seafood") ||
+      text.includes("italian") ||
+      text.includes("sushi") ||
+      text.includes("spanish") ||
+      text.includes("portuguese") ||
+      text.includes("brazilian") ||
+      text.includes("mediterranean") ||
+      text.includes("greek") ||
+      text.includes("moroccan") ||
+      text.includes("ethiopian") ||
+      text.includes("brunch") ||
+      text.includes("restaurant bar") ||
+      text.includes("sports bar")
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
   function classifyVenue(tags = {}) {
     const amenity = String(tags.amenity || "").toLowerCase();
     const name = String(tags.name || "").toLowerCase();
@@ -425,6 +601,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (amenity === "restaurant") return "Restaurant";
     if (amenity === "biergarten") return "Beer Garden";
     if (amenity === "casino") return "Casino";
+    if (amenity === "cafe") return "Cafe";
     return "Venue";
   }
 
@@ -512,7 +689,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function searchNearbyPlaces(lat, lng, mode = "nightlife", radiusMeters = 3500) {
     const overpassQuery = `
-[out:json][timeout:30];
+[out:json][timeout:25];
 (
   node["amenity"](around:${radiusMeters},${lat},${lng});
   way["amenity"](around:${radiusMeters},${lat},${lng});
@@ -535,9 +712,17 @@ out center tags;
         const tags = el.tags || {};
         const placeLat = el.lat ?? el.center?.lat;
         const placeLng = el.lon ?? el.center?.lon;
+        const rawText = normalize(
+          `${tags.name || ""} ${tags.amenity || ""} ${tags.cuisine || ""} ${tags.tourism || ""} ${tags.leisure || ""} ${tags.shop || ""}`
+        );
 
         if (!placeLat || !placeLng || !tags.name) return null;
         if (!matchesMode(tags, mode)) return null;
+        if (!isRelevantCandidate(tags)) return null;
+        if (hasAny(rawText, HARD_BLOCK_WORDS)) return null;
+        if (hasAny(rawText, MEDICAL_WORDS)) return null;
+        if (hasAny(rawText, FAST_FOOD_WORDS)) return null;
+        if (hasAny(rawText, DESSERT_WORDS)) return null;
 
         const phone = tags.phone || tags["contact:phone"] || "";
         const website = tags.website || tags["contact:website"] || tags.url || "";
@@ -623,7 +808,7 @@ out center tags;
     );
   }
 
-  function filterPlacesForArea(places, areaInfo) {
+  function filterPlacesForArea(places, areaInfo, center = null) {
     const targetZip = extractZip(areaInfo.zip || "");
     const targetTown = normalize(areaInfo.town || "");
 
@@ -637,6 +822,13 @@ out center tags;
       if (townMatches.length) return townMatches;
     }
 
+    if (center) {
+      const nearMatches = places.filter(
+        (p) => milesBetween(center.lat, center.lng, p.lat, p.lng) <= 2.25
+      );
+      if (nearMatches.length) return nearMatches;
+    }
+
     return [];
   }
 
@@ -648,15 +840,20 @@ out center tags;
     if (filters.venue !== "any") {
       const venueMap = {
         bar: ["bar"],
+        "sports bar": ["sports bar", "sports"],
         pub: ["pub"],
         tavern: ["tavern"],
         lounge: ["lounge"],
         club: ["club", "nightclub"],
+        nightclub: ["nightclub", "club"],
+        "casino nightclub": ["casino nightclub", "casino", "nightclub"],
         "dive bar": ["dive"],
         "pool hall": ["pool hall", "billiard"],
         "bar arcade": ["arcade"],
         "axe throwing": ["axe"],
         "restaurant bar": ["restaurant bar", "bar", "lounge"],
+        "concert venue": ["concert", "music venue", "theater"],
+        "beach bar": ["beach bar", "beach", "boardwalk"],
         restaurant: [
           "restaurant",
           "italian",
@@ -729,27 +926,6 @@ out center tags;
     return hay.includes("wicked wolf");
   }
 
-  function placeHay(place) {
-    return normalize(
-      `${place.name} ${place.type} ${place.fullAddress || ""} ${place.address || ""} ${JSON.stringify(place.tags || {})}`
-    );
-  }
-
-  function isFastFood(place) {
-    const hay = placeHay(place);
-    return FAST_FOOD_WORDS.some((word) => hay.includes(normalize(word)));
-  }
-
-  function isDessertOrSnackSpot(place) {
-    const hay = placeHay(place);
-    return DESSERT_WORDS.some((word) => hay.includes(normalize(word)));
-  }
-
-  function isMedicalOrNonNight(place) {
-    const hay = placeHay(place);
-    return MEDICAL_WORDS.some((word) => hay.includes(normalize(word)));
-  }
-
   function isHighEndRestaurant(place) {
     const hay = placeHay(place);
     return (
@@ -794,7 +970,12 @@ out center tags;
   function isLikelyRestaurant(place) {
     const hay = placeHay(place);
 
-    if (isFastFood(place) || isDessertOrSnackSpot(place) || isMedicalOrNonNight(place)) {
+    if (
+      isFastFood(place) ||
+      isDessertOrSnackSpot(place) ||
+      isMedicalOrNonNight(place) ||
+      isHardBlockedPlace(place)
+    ) {
       return false;
     }
 
@@ -822,7 +1003,12 @@ out center tags;
   function isLikelyDrinksSpot(place) {
     const hay = placeHay(place);
 
-    if (isFastFood(place) || isDessertOrSnackSpot(place) || isMedicalOrNonNight(place)) {
+    if (
+      isFastFood(place) ||
+      isDessertOrSnackSpot(place) ||
+      isMedicalOrNonNight(place) ||
+      isHardBlockedPlace(place)
+    ) {
       return false;
     }
 
@@ -845,7 +1031,12 @@ out center tags;
   function isLikelyCrowdSpot(place) {
     const hay = placeHay(place);
 
-    if (isFastFood(place) || isDessertOrSnackSpot(place) || isMedicalOrNonNight(place)) {
+    if (
+      isFastFood(place) ||
+      isDessertOrSnackSpot(place) ||
+      isMedicalOrNonNight(place) ||
+      isHardBlockedPlace(place)
+    ) {
       return false;
     }
 
@@ -998,7 +1189,20 @@ out center tags;
     };
   }
 
-  function scoreRestaurant(place, prefs) {
+  function getTownNameBoost(place, areaInfo, bucket) {
+    const town = normalize(areaInfo?.town || "");
+    const hay = placeHay(place);
+
+    if (town !== "hoboken") return 0;
+
+    if (bucket === "dinner" && hasAny(hay, KNOWN_HOBOKEN_DINNER_NAMES)) return 40;
+    if (bucket === "drinks" && hasAny(hay, KNOWN_HOBOKEN_DRINK_NAMES)) return 35;
+    if (bucket === "crowd" && hasAny(hay, KNOWN_HOBOKEN_CROWD_NAMES)) return 30;
+
+    return 0;
+  }
+
+  function scoreRestaurant(place, prefs, areaInfo) {
     const hay = placeHay(place);
     let score = 0;
 
@@ -1006,12 +1210,15 @@ out center tags;
     if (isFastFood(place)) score -= 1200;
     if (isDessertOrSnackSpot(place)) score -= 1000;
     if (isMedicalOrNonNight(place)) score -= 1500;
+    if (isHardBlockedPlace(place)) score -= 1500;
 
     if (place.website) score += 10;
     if (place.menu) score += 10;
     if (place.hours) score += 8;
     if (place.fullAddress && place.fullAddress.length > 12) score += 5;
     if (place.type === "Restaurant Bar") score += 8;
+
+    score += getTownNameBoost(place, areaInfo, "dinner");
 
     if (prefs.cuisine && hay.includes(normalize(prefs.cuisine))) score += 40;
     if (prefs.wantsBrunch && hay.includes("brunch")) score += 35;
@@ -1029,6 +1236,7 @@ out center tags;
       if (isHighEndRestaurant(place)) score += 30;
       if (hay.includes("romantic")) score += 20;
       if (hay.includes("wine")) score += 15;
+      if (hay.includes("waterfront")) score += 10;
     }
 
     if (prefs.age === "30+" || prefs.age === "40+" || prefs.age === "50+") {
@@ -1038,6 +1246,9 @@ out center tags;
       if (isYoungPartyBar(place)) score -= 25;
     }
 
+    if (prefs.wantsWaterfront && hay.includes("waterfront")) score += 18;
+    if (prefs.wantsCocktails && hay.includes("restaurant bar")) score += 12;
+
     if (prefs.budget === "cheap") {
       if (hay.includes("mexican") || hay.includes("pizza") || hay.includes("happy hour")) score += 10;
     }
@@ -1045,7 +1256,7 @@ out center tags;
     return score;
   }
 
-  function scoreDrinks(place, prefs) {
+  function scoreDrinks(place, prefs, areaInfo) {
     const hay = placeHay(place);
     let score = 0;
 
@@ -1053,9 +1264,12 @@ out center tags;
     if (isFastFood(place)) score -= 1500;
     if (isDessertOrSnackSpot(place)) score -= 1200;
     if (isMedicalOrNonNight(place)) score -= 1500;
+    if (isHardBlockedPlace(place)) score -= 1500;
 
     if (place.website) score += 8;
     if (place.hours) score += 8;
+
+    score += getTownNameBoost(place, areaInfo, "drinks");
 
     if (prefs.wantsCocktails) {
       if (hay.includes("cocktail")) score += 40;
@@ -1083,7 +1297,8 @@ out center tags;
 
     return score;
   }
-    function scoreCrowdSpot(place, prefs) {
+
+  function scoreCrowdSpot(place, prefs, areaInfo) {
     const hay = placeHay(place);
     let score = 0;
 
@@ -1091,9 +1306,12 @@ out center tags;
     if (isFastFood(place)) score -= 1500;
     if (isDessertOrSnackSpot(place)) score -= 1200;
     if (isMedicalOrNonNight(place)) score -= 1500;
+    if (isHardBlockedPlace(place)) score -= 1500;
 
     if (place.website) score += 6;
     if (place.hours) score += 6;
+
+    score += getTownNameBoost(place, areaInfo, "crowd");
 
     if (prefs.age === "20s") {
       if (isYoungPartyBar(place)) score += 30;
@@ -1194,8 +1412,7 @@ out center tags;
       </div>
     `;
   }
-
-  function renderAINightPlan(prompt, areaInfo, dinnerPicks, drinkPicks, crowdPicks, prefs) {
+    function renderAINightPlan(prompt, areaInfo, dinnerPicks, drinkPicks, crowdPicks, prefs) {
     els.results.innerHTML = `
       <h2>Night Plan</h2>
       <div class="card">
@@ -1295,8 +1512,14 @@ out center tags;
   }
 
   function renderSoloResults(center, areaInfo, places, filters) {
-    const localOnly = filterPlacesForArea(places, areaInfo);
-    const aliveOnly = localOnly.filter((p) => !knownClosed(p));
+    const localOnly = filterPlacesForArea(places, areaInfo, center);
+    const aliveOnly = localOnly
+      .filter((p) => !knownClosed(p))
+      .filter((p) => !isMedicalOrNonNight(p))
+      .filter((p) => !isFastFood(p))
+      .filter((p) => !isDessertOrSnackSpot(p))
+      .filter((p) => !isHardBlockedPlace(p));
+
     const filtered = aliveOnly.filter((p) => matchesSoloFilters(p, filters));
 
     els.results.innerHTML = `
@@ -1317,12 +1540,16 @@ out center tags;
   }
 
   function renderMiddleResults(mid, midpointInfo, places, geoA, geoB, mode) {
-    const localPlaces = filterPlacesForArea(places, midpointInfo)
+    const localPlaces = filterPlacesForArea(places, midpointInfo, mid)
       .filter((p) => !knownClosed(p))
+      .filter((p) => !isMedicalOrNonNight(p))
+      .filter((p) => !isFastFood(p))
+      .filter((p) => !isDessertOrSnackSpot(p))
+      .filter((p) => !isHardBlockedPlace(p))
       .filter((p) => {
         if (mode === "restaurants") return isLikelyRestaurant(p);
         if (mode === "nightlife") return isLikelyDrinksSpot(p) || isLikelyCrowdSpot(p);
-        return !isMedicalOrNonNight(p);
+        return true;
       });
 
     els.results.innerHTML = `
@@ -1355,12 +1582,16 @@ out center tags;
   }
 
   function renderGroupResults(mid, midpointInfo, places, geos, mode) {
-    const localPlaces = filterPlacesForArea(places, midpointInfo)
+    const localPlaces = filterPlacesForArea(places, midpointInfo, mid)
       .filter((p) => !knownClosed(p))
+      .filter((p) => !isMedicalOrNonNight(p))
+      .filter((p) => !isFastFood(p))
+      .filter((p) => !isDessertOrSnackSpot(p))
+      .filter((p) => !isHardBlockedPlace(p))
       .filter((p) => {
         if (mode === "restaurants") return isLikelyRestaurant(p);
         if (mode === "nightlife") return isLikelyDrinksSpot(p) || isLikelyCrowdSpot(p);
-        return !isMedicalOrNonNight(p);
+        return true;
       });
 
     const pointsHtml = geos
@@ -1462,15 +1693,20 @@ out center tags;
       if (
         [
           "bar",
+          "sports bar",
           "pub",
           "tavern",
           "lounge",
           "club",
+          "nightclub",
+          "casino nightclub",
           "dive bar",
           "pool hall",
           "bar arcade",
           "axe throwing",
-          "restaurant bar"
+          "restaurant bar",
+          "beach bar",
+          "concert venue"
         ].includes(filters.venue)
       ) {
         mode = "nightlife";
@@ -1510,10 +1746,10 @@ out center tags;
       const mid = midpoint(geoA, geoB);
       const midpointInfo = await reverseGeocode(mid.lat, mid.lng);
 
-      let places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
+      let places = await searchNearbyPlaces(mid.lat, mid.lng, "everything", 4200);
       await enrichPlacesWithReverse(places, 18);
 
-      renderMiddleResults(mid, midpointInfo, places, geoA, geoB, "nightlife");
+      renderMiddleResults(mid, midpointInfo, places, geoA, geoB, "everything");
     } catch (err) {
       els.results.innerHTML = `
         <div class="card error-card">
@@ -1557,10 +1793,10 @@ out center tags;
       const mid = centroid(good);
       const midpointInfo = await reverseGeocode(mid.lat, mid.lng);
 
-      let places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife");
+      let places = await searchNearbyPlaces(mid.lat, mid.lng, "everything", 4200);
       await enrichPlacesWithReverse(places, 18);
 
-      renderGroupResults(mid, midpointInfo, places, good, "nightlife");
+      renderGroupResults(mid, midpointInfo, places, good, "everything");
 
       if (bad.length) {
         els.results.innerHTML += `
@@ -1606,14 +1842,16 @@ out center tags;
       let places = await searchNearbyPlaces(center.lat, center.lng, "everything", 4200);
       await enrichPlacesWithReverse(places, 24);
 
-      const localOnly = filterPlacesForArea(places, areaInfo)
+      const localOnly = filterPlacesForArea(places, areaInfo, center)
         .filter((p) => !knownClosed(p))
         .filter((p) => !isMedicalOrNonNight(p))
-        .filter((p) => !isFastFood(p));
+        .filter((p) => !isFastFood(p))
+        .filter((p) => !isDessertOrSnackSpot(p))
+        .filter((p) => !isHardBlockedPlace(p));
 
-      const dinnerPicks = pickTopUnique(localOnly, (p) => scoreRestaurant(p, prefs), 3);
-      const drinkPicks = pickTopUnique(localOnly, (p) => scoreDrinks(p, prefs), 2);
-      const crowdPicks = pickTopUnique(localOnly, (p) => scoreCrowdSpot(p, prefs), 2);
+      const dinnerPicks = pickTopUnique(localOnly, (p) => scoreRestaurant(p, prefs, areaInfo), 3);
+      const drinkPicks = pickTopUnique(localOnly, (p) => scoreDrinks(p, prefs, areaInfo), 2);
+      const crowdPicks = pickTopUnique(localOnly, (p) => scoreCrowdSpot(p, prefs, areaInfo), 2);
 
       renderAINightPlan(q, areaInfo, dinnerPicks, drinkPicks, crowdPicks, prefs);
       lastMidpointState = null;
@@ -1630,7 +1868,7 @@ out center tags;
     els.results.innerHTML = `
       <div class="card">
         <h3 style="margin-top:0;">Starter NJ towns</h3>
-        <p style="margin-bottom:8px;">Use Solo for one town, Middle for two places, or Group for multiple people.</p>
+        <p style="margin-bottom:8px;">Use Solo for one town, Middle for two places, Group for multiple people.</p>
         <p style="margin-bottom:0;">Tip: town + venue type + vibe usually works better than a very generic search.</p>
       </div>
     `;
@@ -1687,7 +1925,7 @@ out center tags;
       const p = document.createElement("p");
       p.className = "muted middle-help";
       p.style.marginTop = "0";
-      p.textContent = "Tip: use clean addresses or town + ZIP.";
+      p.textContent = "Tip: use clean addresses or town + NJ + ZIP.";
       els.panelMiddle.insertBefore(p, els.panelMiddle.firstChild);
     }
 
@@ -1696,7 +1934,7 @@ out center tags;
       p.className = "muted group-help";
       p.style.marginTop = "0";
       p.textContent =
-        "Tip: one location per line. Town + ZIP works great, and full street addresses work too.";
+        "Tip: one location per line. Town + NJ + ZIP works great, and full street addresses work too.";
       els.panelGroup.insertBefore(p, els.panelGroup.firstChild);
     }
 
@@ -1705,7 +1943,7 @@ out center tags;
       p.className = "muted ai-help";
       p.style.marginTop = "0";
       p.textContent =
-        "Tip: ask like this: Build me a fun night in Hoboken, NJ with a high-end dinner, cocktails after, and a 30+ crowd.";
+        "Tip: ask like this: Build me a fun night in Hoboken, NJ with a high-end dinner, cocktails after, waterfront if possible, and a 30+ crowd.";
       els.panelAi.insertBefore(p, els.panelAi.firstChild);
     }
   }
@@ -1838,6 +2076,8 @@ out center tags;
         </div>
       `;
     }
+
+    checkLateNightWarning();
   }
 
   function checkLateNightWarning() {
@@ -1848,7 +2088,12 @@ out center tags;
     const alreadyShown = localStorage.getItem("nightWarningShown");
     const today = new Date().toDateString();
 
-    if (hours === 0 && minutes >= 15 && alreadyShown !== today) {
+    const inLateWindow =
+      (hours === 0 && minutes >= 15) ||
+      hours === 1 ||
+      hours === 2;
+
+    if (inLateWindow && alreadyShown !== today) {
       const warning = document.getElementById("nightWarning");
       if (warning) {
         warning.style.display = "block";
