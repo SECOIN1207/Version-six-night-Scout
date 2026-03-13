@@ -1316,4 +1316,469 @@ out center tags;
       hay.includes("live music")
     );
   }
-  
+    function placeLinksHtml(place, town) {
+    const queryText = `${place.name} ${place.fullAddress || place.address || town} NJ`;
+    const directions = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryText)}`;
+    const photos = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(place.name + " " + town + " NJ")}`;
+    const search = `https://www.google.com/search?q=${encodeURIComponent(place.name + " " + town + " NJ")}`;
+    const call = place.phone ? `tel:${place.phone.replace(/[^\d+]/g, "")}` : "";
+    const website = place.website || "";
+    const menu = place.menu
+      ? place.menu
+      : `https://www.google.com/search?q=${encodeURIComponent(place.name + " menu " + town + " NJ")}`;
+
+    let html = `<div class="result-links">`;
+    if (call) html += `<a href="${call}">Call</a>`;
+    html += `<a href="${directions}" target="_blank" rel="noopener noreferrer">Directions</a>`;
+    if (website) html += `<a href="${website}" target="_blank" rel="noopener noreferrer">Website</a>`;
+    html += `<a href="${photos}" target="_blank" rel="noopener noreferrer">Photos</a>`;
+    html += `<a href="${menu}" target="_blank" rel="noopener noreferrer">Menu</a>`;
+    html += `<a href="${search}" target="_blank" rel="noopener noreferrer">Search</a>`;
+    html += `</div>`;
+    return html;
+  }
+
+  function extractLocationFromPrompt(prompt) {
+    const raw = String(prompt || "").trim();
+    const lower = normalize(raw);
+
+    const zip = extractZip(raw);
+    if (zip) return zip;
+
+    const entries = Object.entries(TOWN_FIXES).sort((a, b) => b[0].length - a[0].length);
+    for (const [needle, fixed] of entries) {
+      if (lower.includes(needle)) return fixed;
+    }
+
+    const inMatch = raw.match(/\bin\s+([A-Za-z\s]+)(?:,\s*(?:NJ|New Jersey))?/i);
+    if (inMatch && inMatch[1]) {
+      return cleanLocationInput(`${inMatch[1].trim()}, NJ`);
+    }
+
+    return "";
+  }
+
+  function parseAIOptions(prompt) {
+    const lower = normalize(prompt);
+
+    let cuisine = "";
+    for (const word of CUISINE_KEYWORDS) {
+      if (lower.includes(normalize(word))) {
+        cuisine = word;
+        break;
+      }
+    }
+
+    let age = "any";
+    if (
+      lower.includes("50") ||
+      lower.includes("40") ||
+      lower.includes("older crowd") ||
+      lower.includes("mature")
+    ) {
+      age = "40+";
+    } else if (lower.includes("30")) {
+      age = "30+";
+    } else if (lower.includes("20")) {
+      age = "20s";
+    }
+
+    let budget = "moderate";
+    if (
+      lower.includes("cheap") ||
+      lower.includes("$5 beer") ||
+      lower.includes("happy hour") ||
+      lower.includes("cheap drinks") ||
+      lower.includes("cheap cocktails")
+    ) {
+      budget = "cheap";
+    }
+    if (
+      lower.includes("upscale") ||
+      lower.includes("fine dining") ||
+      lower.includes("expensive") ||
+      lower.includes("steakhouse") ||
+      lower.includes("high end") ||
+      lower.includes("high-end") ||
+      lower.includes("five star") ||
+      lower.includes("5 star")
+    ) {
+      budget = "upscale";
+    }
+
+    return {
+      cuisine,
+      age,
+      budget,
+      wantsBrunch: lower.includes("brunch") || lower.includes("sunday"),
+      wantsWaterfront: lower.includes("waterfront") || lower.includes("on the water"),
+      wantsRooftop: lower.includes("rooftop"),
+      wantsLiveMusic: lower.includes("live music") || lower.includes("band"),
+      wantsDJ: lower.includes("dj"),
+      wantsHappyHour:
+        lower.includes("happy hour") ||
+        lower.includes("cheap cocktails") ||
+        lower.includes("cheap beers"),
+      wantsDateNight:
+        lower.includes("date") ||
+        lower.includes("girlfriend") ||
+        lower.includes("wife") ||
+        lower.includes("romantic"),
+      wantsFriends:
+        lower.includes("buddy") ||
+        lower.includes("friends") ||
+        lower.includes("group"),
+      wantsFun:
+        lower.includes("fun") ||
+        lower.includes("great night") ||
+        lower.includes("good time"),
+      wantsHighEnd:
+        lower.includes("high end") ||
+        lower.includes("high-end") ||
+        lower.includes("five star") ||
+        lower.includes("5 star") ||
+        lower.includes("upscale") ||
+        lower.includes("nice restaurant") ||
+        lower.includes("fine dining"),
+      wantsCocktails:
+        lower.includes("cocktail") ||
+        lower.includes("cocktails") ||
+        lower.includes("martini") ||
+        lower.includes("drinks afterwards") ||
+        lower.includes("drinks after") ||
+        lower.includes("go for drinks"),
+      wantsAfterSpot:
+        lower.includes("after spot") ||
+        lower.includes("afterparty") ||
+        lower.includes("after party") ||
+        lower.includes("late night"),
+      wantsFestivals:
+        lower.includes("festival") ||
+        lower.includes("festivals") ||
+        lower.includes("winery") ||
+        lower.includes("wineries")
+    };
+  }
+
+  function getTownNameBoost(place, areaInfo, bucket) {
+    const town = normalize(areaInfo?.town || "");
+    const hay = placeHay(place);
+
+    if (town !== "hoboken") return 0;
+
+    if (bucket === "dinner" && hasAny(hay, KNOWN_HOBOKEN_DINNER_NAMES)) return 40;
+    if (bucket === "drinks" && hasAny(hay, KNOWN_HOBOKEN_DRINK_NAMES)) return 35;
+    if (bucket === "crowd" && hasAny(hay, KNOWN_HOBOKEN_CROWD_NAMES)) return 30;
+    if (bucket === "after" && hasAny(hay, KNOWN_HOBOKEN_CROWD_NAMES)) return 25;
+
+    return 0;
+  }
+
+  function scoreRestaurant(place, prefs, areaInfo) {
+    const hay = placeHay(place);
+    let score = 0;
+
+    if (!isLikelyRestaurant(place)) score -= 1000;
+    if (isBadRestaurantCandidate(place)) score -= 1500;
+    if (isDeliLikeRestaurant(place)) score -= 500;
+
+    if (place.website) score += 10;
+    if (place.menu) score += 10;
+    if (place.hours) score += 8;
+    if (place.fullAddress && place.fullAddress.length > 12) score += 5;
+    if (place.type === "Restaurant Bar") score += 8;
+
+    score += getTownNameBoost(place, areaInfo, "dinner");
+
+    if (prefs.cuisine && hay.includes(normalize(prefs.cuisine))) score += 40;
+    if (prefs.wantsBrunch && hay.includes("brunch")) score += 35;
+
+    if (prefs.wantsHighEnd) {
+      if (isHighEndRestaurant(place)) score += 70;
+      if (hay.includes("steakhouse")) score += 35;
+      if (hay.includes("seafood")) score += 20;
+      if (hay.includes("wine")) score += 15;
+      if (hay.includes("pizza")) score -= 20;
+      if (hay.includes("slice")) score -= 35;
+      if (isDeliLikeRestaurant(place)) score -= 80;
+    }
+
+    if (prefs.wantsDateNight) {
+      if (isHighEndRestaurant(place)) score += 30;
+      if (hay.includes("romantic")) score += 20;
+      if (hay.includes("wine")) score += 15;
+      if (hay.includes("waterfront")) score += 10;
+    }
+
+    if (prefs.age === "30+" || prefs.age === "40+" || prefs.age === "50+") {
+      if (isHighEndRestaurant(place)) score += 18;
+      if (hay.includes("lounge")) score += 10;
+      if (hay.includes("steakhouse")) score += 10;
+      if (isYoungPartyBar(place)) score -= 25;
+    }
+
+    if (prefs.wantsWaterfront && hay.includes("waterfront")) score += 18;
+    if (prefs.wantsCocktails && hay.includes("restaurant bar")) score += 12;
+
+    if (prefs.budget === "cheap") {
+      if (hay.includes("mexican") || hay.includes("pizza") || hay.includes("happy hour")) score += 10;
+    }
+
+    return score;
+  }
+
+  function scoreDrinks(place, prefs, areaInfo) {
+    const hay = placeHay(place);
+    let score = 0;
+
+    if (!isLikelyDrinksSpot(place)) score -= 1000;
+    if (
+      isFastFood(place) ||
+      isDessertOrSnackSpot(place) ||
+      isMedicalOrNonNight(place) ||
+      isHardBlockedPlace(place) ||
+      isOfficeLikePlace(place)
+    ) score -= 1500;
+
+    if (place.website) score += 8;
+    if (place.hours) score += 8;
+
+    score += getTownNameBoost(place, areaInfo, "drinks");
+
+    if (prefs.wantsCocktails) {
+      if (hay.includes("cocktail")) score += 40;
+      if (hay.includes("lounge")) score += 25;
+      if (hay.includes("wine")) score += 20;
+    }
+
+    if (prefs.wantsWaterfront && hay.includes("waterfront")) score += 25;
+    if (prefs.wantsRooftop && hay.includes("rooftop")) score += 25;
+    if (prefs.wantsHappyHour && hay.includes("happy hour")) score += 20;
+
+    if (prefs.wantsHighEnd || prefs.wantsDateNight) {
+      if (isMatureDrinksSpot(place)) score += 45;
+      if (isYoungPartyBar(place)) score -= 40;
+    }
+
+    if (prefs.age === "30+" || prefs.age === "40+" || prefs.age === "50+") {
+      if (isMatureDrinksSpot(place)) score += 25;
+      if (isYoungPartyBar(place)) score -= 40;
+    }
+
+    if (prefs.budget === "cheap") {
+      if (hay.includes("dive") || hay.includes("pub") || hay.includes("tavern")) score += 15;
+    }
+
+    return score;
+  }
+
+  function scoreCrowdSpot(place, prefs, areaInfo) {
+    const hay = placeHay(place);
+    let score = 0;
+
+    if (!isLikelyCrowdSpot(place)) score -= 1000;
+    if (
+      isFastFood(place) ||
+      isDessertOrSnackSpot(place) ||
+      isMedicalOrNonNight(place) ||
+      isHardBlockedPlace(place) ||
+      isOfficeLikePlace(place)
+    ) score -= 1500;
+
+    if (place.website) score += 6;
+    if (place.hours) score += 6;
+
+    score += getTownNameBoost(place, areaInfo, "crowd");
+
+    if (prefs.age === "20s") {
+      if (isYoungPartyBar(place)) score += 30;
+    }
+
+    if (prefs.age === "30+" || prefs.age === "40+" || prefs.age === "50+") {
+      if (isMatureDrinksSpot(place)) score += 35;
+      if (isYoungPartyBar(place)) score -= 45;
+    }
+
+    if (prefs.wantsDJ && hay.includes("dj")) score += 20;
+    if (prefs.wantsLiveMusic && hay.includes("live music")) score += 20;
+    if (prefs.wantsDateNight && isMatureDrinksSpot(place)) score += 20;
+    if (prefs.wantsWaterfront && hay.includes("waterfront")) score += 12;
+    if (prefs.wantsRooftop && hay.includes("rooftop")) score += 12;
+
+    return score;
+  }
+
+  function scoreAfterSpot(place, prefs, areaInfo) {
+    const hay = placeHay(place);
+    let score = 0;
+
+    if (!isLikelyCrowdSpot(place) && !isLikelyDrinksSpot(place)) score -= 1000;
+    if (
+      isFastFood(place) ||
+      isDessertOrSnackSpot(place) ||
+      isMedicalOrNonNight(place) ||
+      isHardBlockedPlace(place) ||
+      isOfficeLikePlace(place)
+    ) score -= 1500;
+
+    score += getTownNameBoost(place, areaInfo, "after");
+
+    if (hay.includes("rooftop")) score += 25;
+    if (hay.includes("lounge")) score += 20;
+    if (hay.includes("cocktail")) score += 15;
+    if (hay.includes("waterfront")) score += 12;
+    if (hay.includes("dj")) score += 12;
+    if (hay.includes("nightclub")) score += 14;
+
+    if (prefs.age === "30+" || prefs.age === "40+" || prefs.age === "50+") {
+      if (isYoungPartyBar(place)) score -= 30;
+      if (isMatureDrinksSpot(place)) score += 20;
+    }
+
+    return score;
+  }
+
+  function pickTopUnique(places, scorer, limit = 3) {
+    const ranked = places
+      .map((p) => ({ place: p, score: scorer(p) }))
+      .filter((x) => x.score > -100)
+      .sort((a, b) => b.score - a.score);
+
+    const used = new Set();
+    const out = [];
+
+    for (const row of ranked) {
+      const key = normalize(row.place.name);
+      if (used.has(key)) continue;
+      used.add(key);
+      out.push(row.place);
+      if (out.length >= limit) break;
+    }
+
+    return out;
+  }
+
+  function buildPlanIntro(areaInfo, prefs) {
+    const parts = [];
+
+    if (prefs.wantsBrunch) {
+      parts.push(`Here’s a Sunday-style plan around ${areaInfo.town}.`);
+    } else if (prefs.wantsDateNight) {
+      parts.push(`Here’s a date-night plan around ${areaInfo.town}.`);
+    } else if (prefs.wantsFriends) {
+      parts.push(`Here’s a fun friends-night plan around ${areaInfo.town}.`);
+    } else {
+      parts.push(`Here’s a fun plan around ${areaInfo.town}.`);
+    }
+
+    if (prefs.cuisine) {
+      parts.push(`I leaned toward ${titleCase(prefs.cuisine)} spots first.`);
+    }
+
+    if (prefs.wantsHighEnd) {
+      parts.push(`I pushed the dinner picks more upscale.`);
+    }
+
+    if (prefs.age !== "any") {
+      parts.push(`I also leaned the vibe toward a ${prefs.age} crowd.`);
+    }
+
+    if (prefs.wantsHappyHour) {
+      parts.push(`I favored places that look more happy-hour friendly where possible.`);
+    }
+
+    if (prefs.wantsWaterfront) {
+      parts.push(`I looked for waterfront options too.`);
+    }
+
+    return parts.join(" ");
+  }
+
+  function planCardHtml(title, items, areaInfo) {
+    if (!items.length) {
+      return `
+        <div class="card warning-card">
+          <p style="margin:0;"><b>${escapeHtml(title)}:</b> Nothing strong came back in ${escapeHtml(areaInfo.town)} yet.</p>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="card">
+        <h3 style="margin-top:0;">${escapeHtml(title)}</h3>
+        ${items
+          .map(
+            (p, i) => `
+              <div style="margin-bottom:18px;">
+                <p style="margin:4px 0;"><b>${i + 1}. ${escapeHtml(p.name)}</b></p>
+                <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(p.type)}</p>
+                <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(p.townResolved || areaInfo.town)}</p>
+                <p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(p.fullAddress || p.address || "Address not listed")}</p>
+                <p style="margin:4px 0;"><b>Hours:</b> ${escapeHtml(p.hours || "Hours not listed")}</p>
+                ${placeLinksHtml(p, areaInfo.town)}
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
+  function buildTimelineHtml(dinnerPicks, drinkPicks, crowdPicks, afterPicks, areaInfo) {
+    const dinner = dinnerPicks[0]?.name || `Dinner in ${areaInfo.town}`;
+    const drinks = drinkPicks[0]?.name || `Drinks nearby`;
+    const crowd = crowdPicks[0]?.name || `A lively spot nearby`;
+    const afterSpot = afterPicks[0]?.name || `One last nearby stop`;
+
+    return `
+      <div class="card">
+        <h3 style="margin-top:0;">AI Night Flow Engine</h3>
+        <p style="margin:6px 0;"><b>Dinner:</b> ${escapeHtml(dinner)}</p>
+        <p style="margin:6px 0;"><b>Drinks:</b> ${escapeHtml(drinks)}</p>
+        <p style="margin:6px 0;"><b>Late crowd:</b> ${escapeHtml(crowd)}</p>
+        <p style="margin:6px 0;"><b>After spot:</b> ${escapeHtml(afterSpot)}</p>
+      </div>
+    `;
+  }
+
+  function renderAINightPlan(prompt, areaInfo, dinnerPicks, drinkPicks, crowdPicks, afterPicks, prefs) {
+    els.results.innerHTML = `
+      <h2>Night Plan</h2>
+      <div class="card">
+        <p><b>Prompt:</b> ${escapeHtml(prompt)}</p>
+        <p>${escapeHtml(buildPlanIntro(areaInfo, prefs))}</p>
+      </div>
+
+      ${buildTimelineHtml(dinnerPicks, drinkPicks, crowdPicks, afterPicks, areaInfo)}
+      ${planCardHtml(prefs.wantsBrunch ? "Top Brunch / Food Picks" : "Top Dinner Picks", dinnerPicks, areaInfo)}
+      ${planCardHtml("Cocktails / Drinks After", drinkPicks, areaInfo)}
+      ${planCardHtml("Later Crowd / Nightlife Move", crowdPicks, areaInfo)}
+      ${planCardHtml("After Spot", afterPicks, areaInfo)}
+
+      <div class="card">
+        <h3 style="margin-top:0;">Suggested Flow</h3>
+        <p style="margin:6px 0;">
+          ${
+            dinnerPicks[0]
+              ? `Start with ${dinnerPicks[0].name}.`
+              : `Start with a good dinner spot in ${areaInfo.town}.`
+          }
+          ${
+            drinkPicks[0]
+              ? ` Then move to ${drinkPicks[0].name} for drinks.`
+              : ` Then move to a stronger drinks spot nearby.`
+          }
+          ${
+            crowdPicks[0]
+              ? ` Then head to ${crowdPicks[0].name} for the later crowd.`
+              : ` Then head to a livelier bar/lounge pocket nearby.`
+          }
+          ${
+            afterPicks[0]
+              ? ` If you still want one more move, close out at ${afterPicks[0].name}.`
+              : ` If you still want one more move, close out somewhere nearby.`
+          }
+        </p>
+      </div>
+    `;
+  }
