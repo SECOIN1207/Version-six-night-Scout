@@ -955,62 +955,7 @@ const menu = safeExternalUrl(menuRaw);
 
     return [];
   }
-  async function runOverpassWithFallback(query) {
-    try {
-      return await fetchOverpass("https://overpass-api.de/api/interpreter", query);
-    } catch (_) {
-      try {
-        return await fetchOverpass("https://overpass.kumi.systems/api/interpreter", query);
-      } catch (_) {
-        return { elements: [] };
-      }
-    }
-  }
-          
-      
-
-  function getPlaceZip(place) {
-    return extractZip(
-      place.zipResolved ||
-      place.zipHint ||
-      place.fullAddress ||
-      place.address ||
-      ""
-    );
-  }
-
-  function getPlaceTown(place) {
-    return normalize(
-      place.townResolved ||
-      place.townHint ||
-      ""
-    );
-  }
-
-  function filterPlacesForArea(places, areaInfo, center = null) {
-    const targetZip = extractZip(areaInfo.zip || "");
-    const targetTown = normalize(areaInfo.town || "");
-
-    if (targetZip) {
-      const zipMatches = places.filter((p) => getPlaceZip(p) === targetZip);
-      if (zipMatches.length) return zipMatches;
-    }
-
-    if (targetTown) {
-      const townMatches = places.filter((p) => getPlaceTown(p) === targetTown);
-      if (townMatches.length) return townMatches;
-    }
-
-    if (center) {
-      const nearMatches = places.filter(
-        (p) => milesBetween(center.lat, center.lng, p.lat, p.lng) <= 2.25
-      );
-      if (nearMatches.length) return nearMatches;
-    }
-
-    return [];
-  }
-
+  
   function matchesSoloFilters(place, filters) {
     const hay = normalize(
       `${place.name} ${place.type} ${place.address} ${place.fullAddress || ""} ${JSON.stringify(place.tags || {})}`
