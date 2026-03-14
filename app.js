@@ -1651,3 +1651,317 @@ const menu = safeExternalUrl(menuRaw);
       </div>
     `;
   }
+    function renderError(message) {
+    els.results.innerHTML = `
+      <div class="card error-card">
+        <p style="margin:0;"><b>Error:</b> ${escapeHtml(message)}</p>
+      </div>
+    `;
+  }
+
+  function renderInfo(message) {
+    els.results.innerHTML = `
+      <div class="card">
+        <p style="margin:0;">${escapeHtml(message)}</p>
+      </div>
+    `;
+  }
+
+  function renderPlaces(title, places, townLabel = "New Jersey") {
+    if (!places.length) {
+      els.results.innerHTML = `
+        <div class="card warning-card">
+          <p style="margin:0;"><b>${escapeHtml(title)}:</b> No strong matches came back.</p>
+        </div>
+      `;
+      return;
+    }
+
+    els.results.innerHTML = `
+      <h3>${escapeHtml(title)}</h3>
+      ${places.map((place, i) => `
+        <div class="card">
+          <p style="margin:4px 0;"><b>${i + 1}. ${escapeHtml(place.name)}</b></p>
+          <p style="margin:4px 0;"><b>Type:</b> ${escapeHtml(place.type || "Venue")}</p>
+          <p style="margin:4px 0;"><b>Town:</b> ${escapeHtml(place.townResolved || place.townHint || townLabel)}</p>
+          <p style="margin:4px 0;"><b>Address:</b> ${escapeHtml(place.fullAddress || place.address || "Address not listed")}</p>
+          <p style="margin:4px 0;"><b>Hours:</b> ${escapeHtml(place.hours || "Hours not listed")}</p>
+          <p style="margin:4px 0;"><b>Age crowd:</b> ${escapeHtml(getAgeCrowdText(place))}</p>
+          ${knownClosed(place) ? `<p style="margin:4px 0;"><b>Status note:</b> Might be closed / verify first.</p>` : ""}
+          ${placeLinksHtml(place, townLabel)}
+        </div>
+      `).join("")}
+    `;
+  }
+
+  function activateTab(tabName) {
+    const panelMap = {
+      solo: els.panelSolo,
+      middle: els.panelMiddle,
+      group: els.panelGroup,
+      ai: els.panelAi
+    };
+
+    els.tabButtons.forEach((btn) => {
+      const isActive = btn.dataset.tab === tabName;
+      btn.classList.toggle("active-tab", isActive);
+    });
+
+    Object.entries(panelMap).forEach(([key, panel]) => {
+      if (!panel) return;
+      panel.classList.toggle("active-panel", key === tabName);
+    });
+  }
+
+  function initStarterTowns() {
+    if (!els.starterTowns) return;
+
+    els.starterTowns.innerHTML = STARTER_TOWNS.map((town) => `
+      <button type="button" class="starter-chip" data-town="${escapeHtml(town)}">
+        ${escapeHtml(town)}
+      </button>
+    `).join("");
+
+    els.starterTowns.querySelectorAll(".starter-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        if (els.soloQuery) els.soloQuery.value = chip.dataset.town || "";
+        activateTab("solo");
+      });
+    });
+  }
+
+  function applyCrowdFilter(places, crowd) {
+    if (crowd === "any") return places;
+
+    return places.filter((place) => {
+      const text = getAgeCrowdText(place).toLowerCase();
+
+      if (crowd === "20s") return text.includes("20");
+      if (crowd === "30+") return text.includes("30") || text.includes("adult") || text.includes("mixed");
+      if (crowd === "40+") return text.includes("30+") || text.includes("adult");
+      if (crowd === "50+") return text.includes("adult");
+      return true;
+    });
+  }
+
+  async function handleSoloSearch() {
+    const raw = String(els.soloQuery?.value || "").trim();
+    if (!raw) {
+      renderError("Enter a city, ZIP, address, or coordinates first.");
+      return;
+    }
+
+    try {
+      renderInfo("Searching solo results...");
+
+      const geo = await geocodeAddress(raw);
+      const areaInfo = await reverseGeocode(geo.lat, geo.lng);
+
+      const mode = els.soloVenue?.value === "restaurant" ? "restaurants" : "all";
+
+      let places = await searchNearbyPlaces(geo.lat, geo.lng, mode, 4200);
+      places = await enrichPlacesWithReverse(places, 16);
+
+      const narrowed = filterPlacesForArea(places, areaInfo, geo);
+      places = narrowed.length ? narrowed : places;
+
+      places = places.filter((place) =>
+        matchesSoloFilters(place, {
+          venue: els.soloVenue?.value || "any",
+          music: els.soloMusic?.value || "any",
+          vibe: els.soloVibe?.value || "any"
+        })
+      );
+
+      places = applyCrowdFilter(places, els.soloCrowd?.value || "any");
+
+      places.sort(
+        (a, b) =>
+          milesBetween(geo.lat, geo.lng, a.lat, a.lng) -
+          milesBetween(geo.lat, geo.lng, b.lat, b.lng)
+      );
+
+      renderPlaces(`Solo results for ${areaInfo.town || raw}`, places, areaInfo.town || raw);
+    } catch (err) {
+      renderError(err.message || "Solo search failed.");
+    }
+  }
+
+  async function handleMiddleSearch() {
+    const a = String(els.locA?.value || "").trim();
+    const b = String(els.locB?.value || "").trim();
+
+    if (!a || !b) {
+      renderError("Enter both locations first.");
+      return;
+    }
+
+    try {
+      renderInfo("Calculating midpoint...");
+
+      const geoA = await geocodeAddress(a);
+      const geoB = await geocodeAddress(b);
+      const mid = midpoint(geoA, geoB);
+      const areaInfo = await reverseGeocode(mid.lat, mid.lng);
+
+      let places = await searchNearbyPlaces(mid.lat, mid.lng, "nightlife", 4500);
+      places = await enrichPlacesWithReverse(places, 16);
+
+      const narrowed = filterPlacesForArea(places, areaInfo, mid);
+      places = narrowed.length ? narrowed : places;
+
+      places.sort(
+        (x, y) =>
+          milesBetween(mid.lat, mid.lng, x.lat, x.lng) -
+          milesBetween(mid.lat, mid.lng, y.lat, y.lng)
+      );
+
+      renderPlaces(`Middle-point nightlife near ${areaInfo.town}`, places, areaInfo.town);
+    } catch (err) {
+      renderError(err.message || "Middle search failed.");
+    }
+  }
+
+  async function handleGroupSearch() {
+    const raw = String(els.groupList?.value || "").trim();
+    if (!raw) {
+      renderError("Enter one location per line first.");
+      return;
+    }
+
+    const lines = raw
+      .split("\n")
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    if (!lines.length) {
+      renderError("Enter at least one valid location.");
+      return;
+    }
+
+    try {
+      renderInfo("Calculating group center...");
+
+      const { good, bad } = await geocodeManyLocations(lines);
+
+      if (!good.length) {
+        renderError("None of those locations could be matched.");
+        return;
+      }
+
+      const center = centroid(good);
+      const areaInfo = await reverseGeocode(center.lat, center.lng);
+
+      let places = await searchNearbyPlaces(center.lat, center.lng, "nightlife", 5000);
+      places = await enrichPlacesWithReverse(places, 16);
+
+      const narrowed = filterPlacesForArea(places, areaInfo, center);
+      places = narrowed.length ? narrowed : places;
+
+      places.sort(
+        (a, b) =>
+          milesBetween(center.lat, center.lng, a.lat, a.lng) -
+          milesBetween(center.lat, center.lng, b.lat, b.lng)
+      );
+
+      renderPlaces(`Group-center nightlife near ${areaInfo.town}`, places, areaInfo.town);
+
+      if (bad.length) {
+        els.results.innerHTML += `
+          <div class="card warning-card">
+            <p><b>Could not match:</b> ${escapeHtml(bad.join(" | "))}</p>
+          </div>
+        `;
+      }
+    } catch (err) {
+      renderError(err.message || "Group search failed.");
+    }
+  }
+
+  async function handleAiPlan() {
+    const prompt = String(els.aiPrompt?.value || "").trim();
+    if (!prompt) {
+      renderError("Enter a nightlife prompt first.");
+      return;
+    }
+
+    try {
+      renderInfo("Building your night plan...");
+
+      const extracted = extractLocationFromPrompt(prompt) || "Hoboken, NJ 07030";
+      const geo = await geocodeAddress(extracted);
+      const areaInfo = await reverseGeocode(geo.lat, geo.lng);
+      const prefs = parseAIOptions(prompt);
+
+      let places = await searchNearbyPlaces(geo.lat, geo.lng, "all", 4500);
+      places = await enrichPlacesWithReverse(places, 16);
+
+      const narrowed = filterPlacesForArea(places, areaInfo, geo);
+      places = narrowed.length ? narrowed : places;
+
+      const dinnerPicks = pickTopUnique(
+        places,
+        (p) => scoreRestaurant(p, prefs, areaInfo),
+        3
+      );
+
+      const drinkPicks = pickTopUnique(
+        places,
+        (p) => scoreDrinks(p, prefs, areaInfo),
+        3
+      );
+
+      const crowdPicks = pickTopUnique(
+        places,
+        (p) => scoreCrowdSpot(p, prefs, areaInfo),
+        3
+      );
+
+      const afterPicks = pickTopUnique(
+        places,
+        (p) => scoreAfterSpot(p, prefs, areaInfo),
+        3
+      );
+
+      renderAINightPlan(
+        prompt,
+        areaInfo,
+        dinnerPicks,
+        drinkPicks,
+        crowdPicks,
+        afterPicks,
+        prefs
+      );
+    } catch (err) {
+      renderError(err.message || "AI plan failed.");
+    }
+  }
+
+  if (els.tabButtons.length) {
+    els.tabButtons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        activateTab(btn.dataset.tab);
+      });
+    });
+  }
+
+  if (els.searchBtn) els.searchBtn.addEventListener("click", handleSoloSearch);
+  if (els.middleBtn) els.middleBtn.addEventListener("click", handleMiddleSearch);
+  if (els.groupBtn) els.groupBtn.addEventListener("click", handleGroupSearch);
+  if (els.aiBtn) els.aiBtn.addEventListener("click", handleAiPlan);
+
+  if (els.loadNJ) {
+    els.loadNJ.addEventListener("click", () => {
+      initStarterTowns();
+      renderInfo("Starter NJ towns loaded below. Tap one to drop it into Solo Search.");
+    });
+  }
+
+  window.closeNightWarning = function closeNightWarning() {
+    const box = document.getElementById("nightWarning");
+    if (box) box.style.display = "none";
+  };
+
+  initStarterTowns();
+  activateTab("solo");
+});
