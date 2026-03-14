@@ -967,17 +967,7 @@ const menu = safeExternalUrl(menuRaw);
     }
   }
           
-        } catch (_) {
-          place.fullAddress = place.address || "";
-          place.townResolved = place.townHint || "";
-          place.zipResolved = place.zipHint || "";
-          place.countyResolved = "";
-        }
-      })
-    );
-
-    return places;
-  }
+      
 
   function getPlaceZip(place) {
     return extractZip(
